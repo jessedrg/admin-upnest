@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { clsx } from "clsx";
 import {
   HomeIcon,
@@ -13,6 +13,7 @@ import {
   ContractIcon,
   LogoutIcon,
 } from "@/components/icons";
+import { createClient } from "@/lib/supabase/client";
 
 const NAV = [
   { href: "/dashboard", label: "Overview", icon: HomeIcon },
@@ -28,6 +29,14 @@ const NAV = [
 
 export function SideNav() {
   const path = usePathname();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
   return (
     <aside className="hidden md:flex w-[220px] flex-col border-r border-rule-2 bg-paper-soft py-6 px-3">
       <div className="px-3 mb-6">
@@ -55,7 +64,10 @@ export function SideNav() {
         })}
       </nav>
       <div className="mt-auto px-3">
-        <button className="flex items-center gap-2 text-[12px] text-t-3 hover:text-t-1">
+        <button 
+          onClick={handleSignOut}
+          className="flex items-center gap-2 text-[12px] text-t-3 hover:text-t-1"
+        >
           <LogoutIcon size={14} />
           Sign out
         </button>
