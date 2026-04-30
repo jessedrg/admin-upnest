@@ -1,0 +1,160 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Design tokens ───────────────────────────────────────────────── */
+:root {
+  /* Paper & ink */
+  --paper: #f6f1ea;
+  --paper-2: #efe7dc;
+  --paper-soft: #fbf7f0;
+  --paper-card: #ffffffcc;
+  --ink: #1a1614;
+
+  /* Text */
+  --t-1: #1a1614;
+  --t-2: #3d3531;
+  --t-3: #6b5e55;
+  --t-4: #9b8d82;
+
+  /* Accents */
+  --plum: #6b3f5b;
+  --plum-2: #8a5577;
+  --tan: #c8a878;
+  --rust: #b85c3a;
+  --moss: #5a6b3f;
+  --slate: #4a5a6b;
+
+  /* Lines */
+  --rule: #c9bdb1;
+  --rule-2: #ddd2c5;
+
+  /* Fonts (set in app/layout.tsx via next/font) */
+  --font-serif: "Instrument Serif", Georgia, serif;
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* ─── Base ────────────────────────────────────────────────────────── */
+html,
+body {
+  background: var(--paper);
+  color: var(--t-1);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Editorial primitives ────────────────────────────────────────── */
+.serif {
+  font-family: var(--font-serif);
+}
+.mono {
+  font-family: var(--font-mono);
+}
+
+.rule {
+  height: 1px;
+  background: var(--rule);
+  border: 0;
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--t-3);
+}
+
+/* ─── Buttons ─────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: all 160ms ease;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--t-1);
+}
+.btn-primary {
+  background: var(--ink);
+  color: var(--paper);
+}
+.btn-primary:hover {
+  background: var(--plum);
+}
+.btn-ghost {
+  border-color: var(--rule);
+}
+.btn-ghost:hover {
+  background: var(--paper-2);
+}
+
+/* ─── Card ────────────────────────────────────────────────────────── */
+.card {
+  background: var(--paper-soft);
+  border: 1px solid var(--rule-2);
+  border-radius: 14px;
+}
+
+/* ─── Shimmer (loading) ───────────────────────────────────────────── */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--paper-2) 0%,
+    var(--paper-soft) 50%,
+    var(--paper-2) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* Top progress bar */
+.top-progress {
+  position: relative;
+  height: 2px;
+  overflow: hidden;
+  background: transparent;
+}
+.top-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--plum-2) 30%,
+    var(--plum) 50%,
+    var(--plum-2) 70%,
+    transparent 100%
+  );
+  animation: topbar 1.2s ease-in-out infinite;
+}
+
+/* ─── Scrollbar (subtle) ──────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--rule-2);
+  border-radius: 999px;
+  border: 2px solid var(--paper);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--rule);
+}
+
+/* ─── Selection ───────────────────────────────────────────────────── */
+::selection {
+  background: var(--plum);
+  color: var(--paper);
+}
