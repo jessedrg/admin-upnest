@@ -1,5 +1,7 @@
+import { fetchRecruiters } from "@/lib/api";
 import { RecruitersClient } from "./client";
 
-export default function RecruitersPage() {
-  return <RecruitersClient />;
+export default async function RecruitersPage() {
+  const recruiters = await fetchRecruiters();
+  return <RecruitersClient initial={recruiters} />;
 }

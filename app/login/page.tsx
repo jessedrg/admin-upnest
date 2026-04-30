@@ -2,8 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { createClient } from "@/lib/supabase/client";
 import { Aurora } from "@/components/editorial/aurora";
 import { Button, Input, Label } from "@/components/ui/controls";
 import { useToast } from "@/components/ui/toast";
@@ -12,23 +11,40 @@ export default function LoginPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [pending, setPending] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setPending(true);
+    setError(null);
+
     const fd = new FormData(e.currentTarget);
-    const res = await signIn("credentials", {
-      email: fd.get("email"),
-      password: fd.get("password"),
-      redirect: false,
-    });
-    setPending(false);
-    if (res?.error) {
+    const email = fd.get("email") as string;
+    const password = fd.get("password") as string;
+
+    const supabase = createClient();
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        setError(error.message);
+        toast({ title: "Couldn't sign in", tone: "error" });
+        setPending(false);
+        return;
+      }
+
+      toast({ title: "Welcome back", tone: "success" });
+      router.push("/dashboard");
+      router.refresh();
+    } catch (err) {
+      setError("An unexpected error occurred");
       toast({ title: "Couldn't sign in", tone: "error" });
-      return;
+      setPending(false);
     }
-    toast({ title: "Welcome back", tone: "success" });
-    router.push("/dashboard");
   }
 
   return (
@@ -50,8 +66,7 @@ export default function LoginPage() {
               name="email"
               type="email"
               required
-              placeholder="alex@upnest.example"
-              defaultValue="alex@upnest.example"
+              placeholder="you@example.com"
             />
           </div>
           <div>
@@ -61,9 +76,12 @@ export default function LoginPage() {
               name="password"
               type="password"
               required
-              defaultValue="anything"
+              placeholder="Your password"
             />
           </div>
+          {error && (
+            <p className="text-sm text-rust">{error}</p>
+          )}
           <Button
             type="submit"
             className="w-full justify-center"
@@ -71,7 +89,6 @@ export default function LoginPage() {
           >
             {pending ? "Signing in…" : "Sign in"}
           </Button>
-          
         </form>
         <p className="serif italic text-center text-t-3 text-sm mt-6">
           Operations console.

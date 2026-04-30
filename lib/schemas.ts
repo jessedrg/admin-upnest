@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 /* ─── Primitives ──────────────────────────────────────────────────── */
-export const IdSchema = z.string().min(1);
-export const TimestampSchema = z.string().datetime().or(z.string()); // ISO
+export const IdSchema = z.string().uuid();
+export const TimestampSchema = z.string().datetime().or(z.string());
 
 /* ─── Money ───────────────────────────────────────────────────────── */
 export const MoneySchema = z.object({
@@ -11,23 +11,41 @@ export const MoneySchema = z.object({
 });
 export type Money = z.infer<typeof MoneySchema>;
 
-/* ─── Org / User ──────────────────────────────────────────────────── */
+/* ─── Organization (Client) ───────────────────────────────────────── */
 export const OrgSchema = z.object({
   id: IdSchema,
   name: z.string(),
-  type: z.enum(["company", "agency"]),
-  logo: z.string().url().optional(),
-  status: z.enum(["pending", "active", "suspended"]).default("active"),
+  logo_url: z.string().nullable().optional(),
+  website: z.string().nullable().optional(),
+  industry: z.string().nullable().optional(),
+  company_size: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  contact_name: z.string().nullable().optional(),
+  contact_email: z.string().nullable().optional(),
+  contact_phone: z.string().nullable().optional(),
+  account_type: z.string().nullable().optional(),
+  created_at: TimestampSchema,
+  updated_at: TimestampSchema.nullable().optional(),
 });
 export type Org = z.infer<typeof OrgSchema>;
 
+/* ─── User Profile ────────────────────────────────────────────────── */
 export const UserSchema = z.object({
   id: IdSchema,
-  name: z.string(),
-  email: z.string().email(),
-  avatar: z.string().url().optional(),
-  role: z.enum(["recruiter", "client", "admin"]),
-  orgId: IdSchema.optional(),
+  email: z.string().email().nullable().optional(),
+  full_name: z.string().nullable().optional(),
+  first_name: z.string().nullable().optional(),
+  last_name: z.string().nullable().optional(),
+  role: z.string().nullable().optional(),
+  status: z.string().nullable().optional(),
+  profile_picture_url: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  bio: z.string().nullable().optional(),
+  linkedin_url: z.string().nullable().optional(),
+  agency_id: IdSchema.nullable().optional(),
+  bounty_percentage: z.number().nullable().optional(),
+  created_at: TimestampSchema,
+  updated_at: TimestampSchema.nullable().optional(),
 });
 export type User = z.infer<typeof UserSchema>;
 
@@ -39,73 +57,161 @@ export const RoleStatusSchema = z.enum([
   "on_hold",
   "filled",
   "closed",
+  "pending_approval",
+  "active",
 ]);
 export type RoleStatus = z.infer<typeof RoleStatusSchema>;
 
 export const RoleSchema = z.object({
   id: IdSchema,
   title: z.string(),
-  company: z.string(),
-  companyLogo: z.string().optional(),
-  location: z.string(),
-  remote: z.enum(["onsite", "hybrid", "remote"]).default("hybrid"),
-  status: RoleStatusSchema,
-  priority: z.boolean().default(false),
-  bounty: MoneySchema,
-  baseSalary: z
-    .object({
-      min: z.number(),
-      max: z.number(),
-      currency: z.string().default("USD"),
-    })
-    .optional(),
-  postedAt: TimestampSchema,
-  closesAt: TimestampSchema.optional(),
-  pipeline: z.object({
-    sourced: z.number().default(0),
-    submitted: z.number().default(0),
-    interviewing: z.number().default(0),
-    offered: z.number().default(0),
-    hired: z.number().default(0),
-  }),
-  tags: z.array(z.string()).default([]),
-  description: z.string().optional(),
-  recruiters: z.array(IdSchema).default([]),
+  company_name: z.string().nullable().optional(),
+  company_logo: z.string().nullable().optional(),
+  location: z.string().nullable().optional(),
+  remote_policy: z.string().nullable().optional(),
+  status: z.string().nullable().optional(),
+  bounty: z.number().nullable().optional(),
+  salary_range: z.string().nullable().optional(),
+  created_at: TimestampSchema,
+  updated_at: TimestampSchema.nullable().optional(),
+  description: z.string().nullable().optional(),
+  requirements: z.string().nullable().optional(),
+  skills_required: z.any().nullable().optional(),
+  experience_level: z.string().nullable().optional(),
+  department: z.string().nullable().optional(),
+  type: z.string().nullable().optional(),
+  is_published: z.boolean().default(false),
+  published_at: TimestampSchema.nullable().optional(),
+  priority: z.number().default(0),
+  focus_this_week: z.boolean().default(false),
+  recruiter_percentage: z.number().nullable().optional(),
+  created_by: IdSchema.nullable().optional(),
+  agency_id: IdSchema.nullable().optional(),
+  // Computed fields
+  applications_count: z.number().optional(),
 });
 export type Role = z.infer<typeof RoleSchema>;
 
-/* ─── Candidate ───────────────────────────────────────────────────── */
-export const CandidateStageSchema = z.enum([
+/* ─── Application (Candidate) ─────────────────────────────────────── */
+export const ApplicationStatusSchema = z.enum([
   "sourced",
   "submitted",
+  "reviewing",
   "interviewing",
   "offered",
   "hired",
   "rejected",
+  "withdrawn",
 ]);
-export type CandidateStage = z.infer<typeof CandidateStageSchema>;
+export type ApplicationStatus = z.infer<typeof ApplicationStatusSchema>;
 
-export const CandidateSchema = z.object({
+export const ApplicationSchema = z.object({
+  id: IdSchema,
+  role_id: IdSchema,
+  candidate_name: z.string(),
+  candidate_email: z.string().nullable().optional(),
+  candidate_phone: z.string().nullable().optional(),
+  status: z.string().default("submitted"),
+  fit_score: z.number().nullable().optional(),
+  sourced_by: IdSchema.nullable().optional(),
+  created_at: TimestampSchema,
+  updated_at: TimestampSchema.nullable().optional(),
+  linkedin_url: z.string().nullable().optional(),
+  resume_url: z.string().nullable().optional(),
+  cv_url: z.string().nullable().optional(),
+  cover_letter: z.string().nullable().optional(),
+  rejection_reason: z.string().nullable().optional(),
+  ai_analysis: z.any().nullable().optional(),
+  matching_skills: z.array(z.string()).nullable().optional(),
+  missing_skills: z.array(z.string()).nullable().optional(),
+  profile_image_url: z.string().nullable().optional(),
+  // Relations
+  role: RoleSchema.optional(),
+  sourced_by_user: UserSchema.optional(),
+});
+export type Application = z.infer<typeof ApplicationSchema>;
+
+// Legacy alias for backwards compatibility
+export const CandidateSchema = ApplicationSchema;
+export const CandidateStageSchema = ApplicationStatusSchema;
+export type Candidate = Application;
+export type CandidateStage = ApplicationStatus;
+
+/* ─── Agency ──────────────────────────────────────────────────────── */
+export const AgencySchema = z.object({
   id: IdSchema,
   name: z.string(),
-  title: z.string(),
-  avatar: z.string().optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  linkedin: z.string().url().optional(),
-  yearsExperience: z.number().optional(),
-  location: z.string().optional(),
-  roleId: IdSchema,
-  stage: CandidateStageSchema,
-  submittedBy: IdSchema, // recruiter id
-  submittedAt: TimestampSchema,
-  notes: z.string().optional(),
-  fitScore: z.number().min(0).max(100).optional(),
-  rejectionReason: z.string().optional(),
+  slug: z.string().nullable().optional(),
+  logo_url: z.string().nullable().optional(),
+  description: z.string().nullable().optional(),
+  website: z.string().nullable().optional(),
+  contact_email: z.string().nullable().optional(),
+  contact_phone: z.string().nullable().optional(),
+  is_active: z.boolean().default(true),
+  agency_commission_percentage: z.number().nullable().optional(),
+  created_at: TimestampSchema,
+  updated_at: TimestampSchema.nullable().optional(),
 });
-export type Candidate = z.infer<typeof CandidateSchema>;
+export type Agency = z.infer<typeof AgencySchema>;
 
-/* ─── Email / Note ────────────────────────────────────────────────── */
+/* ─── Placement ───────────────────────────────────────────────────── */
+export const PlacementSchema = z.object({
+  id: IdSchema,
+  role_id: IdSchema,
+  application_id: IdSchema,
+  recruiter_id: IdSchema.nullable().optional(),
+  agency_id: IdSchema.nullable().optional(),
+  total_bounty: z.number().nullable().optional(),
+  platform_amount: z.number().nullable().optional(),
+  agency_amount: z.number().nullable().optional(),
+  recruiter_amount: z.number().nullable().optional(),
+  payment_status: z.string().nullable().optional(),
+  hired_at: TimestampSchema.nullable().optional(),
+  paid_at: TimestampSchema.nullable().optional(),
+  created_at: TimestampSchema,
+});
+export type Placement = z.infer<typeof PlacementSchema>;
+
+/* ─── Notification ────────────────────────────────────────────────── */
+export const NotificationSchema = z.object({
+  id: IdSchema,
+  user_id: IdSchema,
+  type: z.string(),
+  title: z.string(),
+  message: z.string(),
+  is_read: z.boolean().default(false),
+  created_at: TimestampSchema,
+  reference_type: z.string().nullable().optional(),
+  reference_id: IdSchema.nullable().optional(),
+  actor_id: IdSchema.nullable().optional(),
+  actor_name: z.string().nullable().optional(),
+  actor_image: z.string().nullable().optional(),
+});
+export type Notification = z.infer<typeof NotificationSchema>;
+
+/* ─── Stats ───────────────────────────────────────────────────────── */
+export const StatsSchema = z.object({
+  earningsThisMonth: z.number(),
+  earningsAllTime: z.number(),
+  rolesActive: z.number(),
+  candidatesSubmitted: z.number(),
+  hires: z.number(),
+  responseRate: z.number(),
+});
+export type Stats = z.infer<typeof StatsSchema>;
+
+/* ─── Activity ────────────────────────────────────────────────────── */
+export const ActivitySchema = z.object({
+  id: IdSchema,
+  actor: z.string(),
+  verb: z.string(),
+  target: z.string(),
+  at: TimestampSchema,
+  kind: z.enum(["candidate", "role", "contract", "system"]),
+});
+export type Activity = z.infer<typeof ActivitySchema>;
+
+/* ─── Email ───────────────────────────────────────────────────────── */
 export const EmailSchema = z.object({
   id: IdSchema,
   candidateId: IdSchema.optional(),
@@ -130,25 +236,3 @@ export const ContractSchema = z.object({
   paidAt: TimestampSchema.optional(),
 });
 export type Contract = z.infer<typeof ContractSchema>;
-
-/* ─── Stats ───────────────────────────────────────────────────────── */
-export const StatsSchema = z.object({
-  earningsThisMonth: z.number(),
-  earningsAllTime: z.number(),
-  rolesActive: z.number(),
-  candidatesSubmitted: z.number(),
-  hires: z.number(),
-  responseRate: z.number(),
-});
-export type Stats = z.infer<typeof StatsSchema>;
-
-/* ─── Activity ────────────────────────────────────────────────────── */
-export const ActivitySchema = z.object({
-  id: IdSchema,
-  actor: z.string(),
-  verb: z.string(),
-  target: z.string(),
-  at: TimestampSchema,
-  kind: z.enum(["candidate", "role", "contract", "system"]),
-});
-export type Activity = z.infer<typeof ActivitySchema>;

@@ -1,47 +1,50 @@
-import NextAuth, { type NextAuthConfig } from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import { z } from "zod";
+import { createClient } from "@/lib/supabase/server";
 
-const Login = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
+/**
+ * Get the currently authenticated user from Supabase.
+ * Returns null if not authenticated.
+ */
+export async function getUser() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+}
 
-export const authConfig: NextAuthConfig = {
-  pages: { signIn: "/login" },
-  session: { strategy: "jwt" },
-  providers: [
-    Credentials({
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(creds) {
-        const parsed = Login.safeParse(creds);
-        if (!parsed.success) return null;
-        // STUB — replace with real auth
-        return {
-          id: "u_me",
-          name: "Alex Reyes",
-          email: parsed.data.email,
-        };
-      },
-    }),
-  ],
-  callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
-      const loggedIn = !!auth?.user;
-      const onAuthPage =
-        nextUrl.pathname.startsWith("/login") ||
-        nextUrl.pathname.startsWith("/signup");
-      if (loggedIn && onAuthPage) {
-        return Response.redirect(new URL("/dashboard", nextUrl));
-      }
-      const isApp = nextUrl.pathname.startsWith("/(app)");
-      // Permissive in dev: allow everything by default
-      return true;
-    },
-  },
-};
+/**
+ * Get the user profile from the user_profiles table.
+ * Returns null if not found.
+ */
+export async function getUserProfile() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-export const { handlers, auth, signIn, signOut } = NextAuth(authConfig);
+  if (!user) return null;
+
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  return profile;
+}
+
+/**
+ * Check if the current user has admin role.
+ */
+export async function isAdmin() {
+  const profile = await getUserProfile();
+  return profile?.role === "admin";
+}
+
+/**
+ * Sign out the current user.
+ */
+export async function signOut() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+}

@@ -1,75 +1,184 @@
-import { sleep, ApiClient } from "./_client";
-import { mockCandidates } from "@/lib/mock";
-import {
-  CandidateSchema,
-  type Candidate,
-  type CandidateStage,
-} from "@/lib/schemas";
+import { createClient } from "@/lib/supabase/server";
+import { ApplicationSchema, type Application } from "@/lib/schemas";
 import { z } from "zod";
 
-export async function fetchCandidates(roleId?: string): Promise<Candidate[]> {
-  if (ApiClient.useMocks) {
-    await sleep(450);
-    const list = roleId
-      ? mockCandidates.filter((c) => c.roleId === roleId)
-      : mockCandidates;
-    return z.array(CandidateSchema).parse(list);
+/* ─── Reads ───────────────────────────────────────────────────────── */
+export async function fetchCandidates(roleId?: string): Promise<Application[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("applications")
+    .select(`
+      *,
+      role:roles(id, title, company_name, company_logo),
+      sourced_by_user:user_profiles!applications_sourced_by_fkey(id, full_name, email, profile_picture_url)
+    `)
+    .order("created_at", { ascending: false });
+
+  if (roleId) {
+    query = query.eq("role_id", roleId);
   }
-  const path = roleId ? `/v1/candidates?roleId=${roleId}` : "/v1/candidates";
-  return z.array(CandidateSchema).parse(await ApiClient.get<unknown>(path));
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching candidates:", error);
+    throw new Error(error.message);
+  }
+
+  return z.array(ApplicationSchema).parse(data || []);
 }
 
-export async function fetchCandidate(id: string): Promise<Candidate | null> {
-  if (ApiClient.useMocks) {
-    await sleep(300);
-    const c = mockCandidates.find((x) => x.id === id);
-    return c ? CandidateSchema.parse(c) : null;
+export async function fetchCandidate(id: string): Promise<Application | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("applications")
+    .select(`
+      *,
+      role:roles(id, title, company_name, company_logo, bounty, location),
+      sourced_by_user:user_profiles!applications_sourced_by_fkey(id, full_name, email, profile_picture_url)
+    `)
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    console.error("Error fetching candidate:", error);
+    throw new Error(error.message);
   }
-  return CandidateSchema.parse(
-    await ApiClient.get<unknown>(`/v1/candidates/${id}`),
-  );
+
+  return ApplicationSchema.parse(data);
 }
 
+/* ─── Mutations ───────────────────────────────────────────────────── */
 export const SubmitCandidateInput = z.object({
-  roleId: z.string(),
-  name: z.string().min(2),
-  title: z.string(),
-  email: z.string().email().optional(),
-  linkedin: z.string().url().optional(),
-  notes: z.string().optional(),
+  role_id: z.string().uuid(),
+  candidate_name: z.string().min(2),
+  candidate_email: z.string().email().optional(),
+  candidate_phone: z.string().optional(),
+  linkedin_url: z.string().url().optional(),
+  resume_url: z.string().url().optional(),
+  cover_letter: z.string().optional(),
 });
 export type SubmitCandidateInput = z.infer<typeof SubmitCandidateInput>;
 
 export async function submitCandidate(
-  input: SubmitCandidateInput,
-): Promise<Candidate> {
+  input: SubmitCandidateInput
+): Promise<Application> {
+  const supabase = await createClient();
   const parsed = SubmitCandidateInput.parse(input);
-  if (ApiClient.useMocks) {
-    await sleep(700);
-    return CandidateSchema.parse({
-      id: `c_${Date.now()}`,
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { data, error } = await supabase
+    .from("applications")
+    .insert({
       ...parsed,
-      stage: "submitted",
-      submittedBy: "u_me",
-      submittedAt: new Date().toISOString(),
-    });
+      sourced_by: user?.id,
+      status: "submitted",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error submitting candidate:", error);
+    throw new Error(error.message);
   }
-  return CandidateSchema.parse(
-    await ApiClient.post("/v1/candidates", parsed),
-  );
+
+  return ApplicationSchema.parse(data);
 }
 
 export async function moveCandidateStage(
   id: string,
-  stage: CandidateStage,
-): Promise<Candidate> {
-  if (ApiClient.useMocks) {
-    await sleep(300);
-    const c = mockCandidates.find((x) => x.id === id);
-    if (!c) throw new Error("not found");
-    return CandidateSchema.parse({ ...c, stage });
+  status: string
+): Promise<Application> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("applications")
+    .update({
+      status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error moving candidate stage:", error);
+    throw new Error(error.message);
   }
-  return CandidateSchema.parse(
-    await ApiClient.post(`/v1/candidates/${id}/stage`, { stage }),
-  );
+
+  return ApplicationSchema.parse(data);
+}
+
+export async function updateCandidate(
+  id: string,
+  updates: Partial<SubmitCandidateInput & { fit_score?: number; rejection_reason?: string }>
+): Promise<Application> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("applications")
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating candidate:", error);
+    throw new Error(error.message);
+  }
+
+  return ApplicationSchema.parse(data);
+}
+
+export async function deleteCandidate(id: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.from("applications").delete().eq("id", id);
+
+  if (error) {
+    console.error("Error deleting candidate:", error);
+    throw new Error(error.message);
+  }
+}
+
+/* ─── Stats by Role ───────────────────────────────────────────────── */
+export async function fetchCandidateStats(roleId: string) {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("applications")
+    .select("status")
+    .eq("role_id", roleId);
+
+  if (error) {
+    console.error("Error fetching candidate stats:", error);
+    throw new Error(error.message);
+  }
+
+  const stats = {
+    sourced: 0,
+    submitted: 0,
+    reviewing: 0,
+    interviewing: 0,
+    offered: 0,
+    hired: 0,
+    rejected: 0,
+    total: data?.length || 0,
+  };
+
+  (data || []).forEach((app) => {
+    const status = app.status as keyof typeof stats;
+    if (status in stats) {
+      stats[status]++;
+    }
+  });
+
+  return stats;
 }
