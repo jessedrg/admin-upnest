@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { useRecruiters, useApplications, usePlacements, transformRecruitersForUI } from '@/lib/hooks/useAdminData';
-import { KpiTile as BKpi, SectionTitle as BSec, Hairline as BHair, Mini as BMini } from './AdminViews';
+import { KpiTile as BKpi, SectionTitle as BSec, Hairline as BHair, Mini as BMini, SkeletonStats, SkeletonTable, Skeleton } from './AdminViews';
 
 export function AdminStats() {
   const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
@@ -42,15 +42,34 @@ export function AdminStats() {
       </div>
 
       {isLoading ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--t-4)' }}>Loading stats...</div>
+        <>
+          <SkeletonStats count={5} />
+          <div style={{ marginBottom: 44 }}>
+            <Skeleton width="30%" height={16} style={{ marginBottom: 12 }} />
+            <div style={{ border:'1px solid var(--hair)', padding:'28px 24px 18px', background:'#fff' }}>
+              <div style={{ display:'flex', gap:14, alignItems:'flex-end', height:220 }}>
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+                    <Skeleton width={28} height={80 + Math.random() * 100} />
+                    <Skeleton width={30} height={10} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <Skeleton width="30%" height={16} style={{ marginBottom: 12 }} />
+          <SkeletonTable rows={5} cols={6} />
+        </>
       ) : (
-        <div className="stat-strip" style={{ display:'flex', border:'1px solid var(--hair)', borderRight:0, marginBottom:40 }}>
-          <BKpi big label="GROSS REV." value={`$${(totalRevenue / 1000).toFixed(1)}k`} delta={0} sub="ALL TIME"/>
-          <BKpi label="PLACEMENTS" value={String(totalPlacements)} delta={0} sub="TOTAL"/>
-          <BKpi label="SUBMITTED" value={String(totalSubmitted)} delta={0} sub="CANDIDATES"/>
-          <BKpi label="SUBMIT → HIRE" value={`${conversionRate}%`} delta={0}/>
-          <BKpi label="ACTIVE RECRUITERS" value={activeRecruiters}/>
-        </div>
+        <>
+          <div className="stat-strip" style={{ display:'flex', border:'1px solid var(--hair)', borderRight:0, marginBottom:40, flexWrap:'wrap' }}>
+            <BKpi big label="GROSS REV." value={`$${(totalRevenue / 1000).toFixed(1)}k`} delta={0} sub="ALL TIME"/>
+            <BKpi label="PLACEMENTS" value={String(totalPlacements)} delta={0} sub="TOTAL"/>
+            <BKpi label="SUBMITTED" value={String(totalSubmitted)} delta={0} sub="CANDIDATES"/>
+            <BKpi label="SUBMIT → HIRE" value={`${conversionRate}%`} delta={0}/>
+            <BKpi label="ACTIVE RECRUITERS" value={activeRecruiters}/>
+          </div>
+        </>
       )}
 
       <BSec num="§ 01" title="Submissions & hires" sub="PAST 8 WEEKS"/>

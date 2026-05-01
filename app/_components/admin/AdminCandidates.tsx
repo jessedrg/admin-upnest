@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useApplications, transformCandidatesForUI } from '@/lib/hooks/useAdminData';
 import Icons from './Icons';
-import { KpiTile as BKpi } from './AdminViews';
+import { KpiTile as BKpi, SkeletonStats, SkeletonTable } from './AdminViews';
 import { useCandidateStore } from './CandidateStore';
 
 const STAGES = ['New', 'Screening', 'Phone', 'Technical', 'Sent to Client', 'On-site', 'Offer', 'Hired', 'Rejected'];
@@ -36,16 +36,19 @@ export function AdminCandidates({ onCandidate }: any) {
       </div>
 
       {isLoading ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--t-4)' }}>Loading candidates...</div>
+        <>
+          <SkeletonStats count={5} />
+          <SkeletonTable rows={8} cols={7} />
+        </>
       ) : (
-        <div className="stat-strip" style={{ display:'flex', border:'1px solid var(--hair)', borderRight:0, marginBottom:32 }}>
-          <BKpi label="TOTAL"   value={allCandidates.length}/>
-          <BKpi label="HIRED"   value={allCandidates.filter((c: any) => c.stage === 'Hired').length}/>
-          <BKpi label="IN PIPE" value={allCandidates.filter((c: any) => c.stage !== 'Hired' && c.stage !== 'Rejected').length}/>
-          <BKpi label="SAVED"   value={allCandidates.filter((c: any) => c.saved).length}/>
-          <BKpi label="FLAGGED" value={allCandidates.filter((c: any) => c.flagged).length}/>
-        </div>
-      )}
+        <>
+          <div className="stat-strip" style={{ display:'flex', border:'1px solid var(--hair)', borderRight:0, marginBottom:32, flexWrap:'wrap' }}>
+            <BKpi label="TOTAL"   value={allCandidates.length}/>
+            <BKpi label="HIRED"   value={allCandidates.filter((c: any) => c.stage === 'Hired').length}/>
+            <BKpi label="IN PIPE" value={allCandidates.filter((c: any) => c.stage !== 'Hired' && c.stage !== 'Rejected').length}/>
+            <BKpi label="SAVED"   value={allCandidates.filter((c: any) => c.saved).length}/>
+            <BKpi label="FLAGGED" value={allCandidates.filter((c: any) => c.flagged).length}/>
+          </div>
 
       <div style={{ display:'flex', alignItems:'center', gap:18, marginBottom:22, flexWrap:'wrap' }}>
         <div style={{ display:'flex', alignItems:'center', gap:6, border:'1px solid var(--hair)', borderRadius:999, padding:'6px 12px', minWidth:260 }}>
@@ -126,6 +129,8 @@ export function AdminCandidates({ onCandidate }: any) {
           );
         })}
       </div>
+        </>
+      )}
     </div>
   );
 }

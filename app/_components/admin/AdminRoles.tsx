@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRoles, useApplications, transformRolesForUI } from '@/lib/hooks/useAdminData';
 import Icons from './Icons';
-import { KpiTile as AKpi, SectionTitle as ASec, Hairline as AHair, Chip as AChip } from './AdminViews';
+import { KpiTile as AKpi, SectionTitle as ASec, Hairline as AHair, Chip as AChip, SkeletonStats, SkeletonTable } from './AdminViews';
 import { showToast } from './Toast';
 
 // Helper to get initials from company name
@@ -375,17 +375,24 @@ export function AdminRoles({ onCreateRole }: any) {
         </div>
       )}
 
-      <div style={{ borderBottom:'1px solid var(--hair)', display:'flex', gap:28, alignItems:'flex-end', marginBottom:20, flexWrap:'wrap' }}>
-        {tabs.map(t => {
-          const A = tab === t.k;
-          return (
-            <button key={t.k} onClick={() => setTab(t.k)} style={{ appearance:'none', border:0, background:'transparent', cursor:'pointer', padding:'10px 0', position:'relative', color: A ? 'var(--ink)' : 'var(--t-3)', fontFamily:'var(--serif)', fontSize:18, fontStyle: A ? 'italic' : 'normal', letterSpacing:'-0.01em' }}>
-              {t.l}<span className="mono" style={{ marginLeft:8, fontSize:10, color:'var(--t-4)', letterSpacing:'.14em' }}>{t.n}</span>
-              {A && <span style={{ position:'absolute', left:0, right:0, bottom:-1, height:2, background:'var(--ink)' }}/>}
-            </button>
-          );
-        })}
-      </div>
+      {isLoading ? (
+        <>
+          <SkeletonStats count={4} />
+          <SkeletonTable rows={8} cols={7} />
+        </>
+      ) : (
+        <>
+          <div style={{ borderBottom:'1px solid var(--hair)', display:'flex', gap:28, alignItems:'flex-end', marginBottom:20, flexWrap:'wrap' }}>
+            {tabs.map(t => {
+              const A = tab === t.k;
+              return (
+                <button key={t.k} onClick={() => setTab(t.k)} style={{ appearance:'none', border:0, background:'transparent', cursor:'pointer', padding:'10px 0', position:'relative', color: A ? 'var(--ink)' : 'var(--t-3)', fontFamily:'var(--serif)', fontSize:18, fontStyle: A ? 'italic' : 'normal', letterSpacing:'-0.01em' }}>
+                  {t.l}<span className="mono" style={{ marginLeft:8, fontSize:10, color:'var(--t-4)', letterSpacing:'.14em' }}>{t.n}</span>
+                  {A && <span style={{ position:'absolute', left:0, right:0, bottom:-1, height:2, background:'var(--ink)' }}/>}
+                </button>
+              );
+            })}
+          </div>
 
       <div style={{ display:'flex', alignItems:'center', gap:18, marginBottom:22, flexWrap:'wrap' }}>
         <div style={{ display:'flex', alignItems:'center', gap:6, border:'1px solid var(--hair)', borderRadius:999, padding:'6px 12px', minWidth:240 }}>
@@ -500,8 +507,10 @@ export function AdminRoles({ onCreateRole }: any) {
             </div>
           );
         })}
-        {!filtered.length && <div style={{ padding:'60px 20px', textAlign:'center', color:'var(--t-4)', fontStyle:'italic', fontFamily:'var(--serif)' }}>{isLoading ? 'Loading roles...' : 'No roles match these filters. Create a role to get started.'}</div>}
+        {!filtered.length && <div style={{ padding:'60px 20px', textAlign:'center', color:'var(--t-4)', fontStyle:'italic', fontFamily:'var(--serif)' }}>No roles match these filters. Create a role to get started.</div>}
       </div>
+        </>
+      )}
 
       {submittalView && <RoleSubmittalModal s={submittalView} onClose={() => setSubmittalView(null)} onApprove={approveSubmittal} onReject={() => rejectSubmittal(submittalView)}/>}
     </div>

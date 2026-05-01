@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { useApplications, transformCandidatesForUI } from '@/lib/hooks/useAdminData';
-import { Chip as AChip } from './AdminViews';
+import { Chip as AChip, Skeleton, SkeletonTable } from './AdminViews';
 import { showToast } from './Toast';
 import { useCandidateStore } from './CandidateStore';
 
@@ -19,7 +19,7 @@ function PipelineBar({ pipeline }: any) {
 }
 
 export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
-  const { data: applicationsData } = useApplications();
+  const { data: applicationsData, isLoading } = useApplications();
   const allCandidates = transformCandidatesForUI(applicationsData || []);
   
   const r = role;
