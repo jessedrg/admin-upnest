@@ -300,8 +300,9 @@ export function transformRecruitersForUI(recruiters: any[], applications: any[])
     }
   })
 
-  // Recruiters are users with role = 'user' (not 'admin')
-  const filteredRecruiters = recruiters.filter(r => r.role === 'user')
+  // Show all recruiters - they have various user_types like 'independent_recruiter'
+  // Filter out admin users only
+  const filteredRecruiters = recruiters.filter(r => r.role !== 'admin')
 
   return filteredRecruiters.map(r => {
     // Map DB status to UI status: 'approved' -> 'active', 'rejected' -> 'revoked', 'pending' -> 'pending'
