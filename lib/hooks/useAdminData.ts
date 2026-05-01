@@ -157,8 +157,7 @@ export function transformOrgsForUI(orgs: any[], agencies: any[]) {
       name: org.name || 'Unknown',
       type: org.account_type === 'agency' ? 'agency' as const : 'company' as const,
       tier: org.account_type || 'company',
-      logo: org.logo_url || (org.name || 'U')[0].toUpperCase(),
-      logoUrl: org.logo_url,
+      logoUrl: org.logo_url || null,
       joined: formatDate(org.created_at),
       mrr: 0, // Not tracked in current schema
       health: statusToHealth(org.status),
@@ -182,7 +181,7 @@ export function transformOrgsForUI(orgs: any[], agencies: any[]) {
       name: agency.name || 'Unknown',
       type: 'agency' as const,
       tier: 'Agency',
-      logo: (agency.name || 'A')[0].toUpperCase(),
+      logoUrl: agency.logo_url || null,
       joined: formatDate(agency.created_at),
       mrr: 0,
       health: agency.is_active ? 'healthy' : 'dormant',
@@ -192,8 +191,10 @@ export function transformOrgsForUI(orgs: any[], agencies: any[]) {
       candidates: 0,
       primary: agency.owner_email || '',
       domain: agency.website?.replace(/https?:\/\//, '') || agency.slug || '',
+      website: agency.website,
       specializations: agency.specializations,
       description: agency.description,
+      contactEmail: agency.owner_email,
     }))
   ]
   return transformed
