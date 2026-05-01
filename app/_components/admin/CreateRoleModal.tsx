@@ -1,5 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { mutate } from 'swr';
 import Icons from './Icons';
 import { showToast } from './Toast';
 
@@ -71,10 +73,46 @@ function ReviewStep({ draft, onClose, onCreated }: any) {
 
   const tabs = [{ k:'basic', l:'Basic' },{ k:'details', l:'Details' },{ k:'skills', l:'Skills' },{ k:'recruiter', l:'Recruiter' }];
 
-  const submit = () => {
-    showToast(`Role created · ${title || 'New Role'}`, { kind:'ok' } as any);
-    onCreated?.();
-    onClose();
+  const submit = async () => {
+    try {
+      const supabase = createClient();
+      
+      const { data, error } = await supabase
+        .from('roles')
+        .insert({
+          title: title || 'New Role',
+          company_name: org || null,
+          location: location || null,
+          remote_policy: workMode || null,
+          experience_level: seniority || null,
+          salary_range: salary || null,
+          priority: priority === 'high' ? 1 : priority === 'low' ? 3 : 2,
+          description: description || null,
+          requirements: requirements || null,
+          skills_required: skills.length > 0 ? skills : null,
+          status: 'open',
+          is_published: true,
+          published_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('[v0] Error creating role:', error);
+        showToast(`Error creating role: ${error.message}`);
+        return;
+      }
+
+      // Revalidate the roles cache
+      mutate('roles');
+      
+      showToast(`Role created · ${title || 'New Role'}`, { kind:'ok' } as any);
+      onCreated?.();
+      onClose();
+    } catch (err: any) {
+      console.error('[v0] Error:', err);
+      showToast(`Error: ${err.message}`);
+    }
   };
 
   return (

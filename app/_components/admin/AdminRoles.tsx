@@ -465,7 +465,7 @@ export function AdminRoles({ onCreateRole }: any) {
             </div>
           );
         })}
-        {!filtered.length && <div style={{ padding:'60px 20px', textAlign:'center', color:'var(--t-4)', fontStyle:'italic', fontFamily:'var(--serif)' }}>No roles match these filters.</div>}
+        {!filtered.length && <div style={{ padding:'60px 20px', textAlign:'center', color:'var(--t-4)', fontStyle:'italic', fontFamily:'var(--serif)' }}>{isLoading ? 'Loading roles...' : 'No roles match these filters. Create a role to get started.'}</div>}
       </div>
 
       {submittalView && <RoleSubmittalModal s={submittalView} onClose={() => setSubmittalView(null)} onApprove={approveSubmittal} onReject={() => rejectSubmittal(submittalView)}/>}

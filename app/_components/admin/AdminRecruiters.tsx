@@ -193,12 +193,16 @@ export function AdminRecruiters() {
           The people who place<br/><span style={{ color:'var(--t-4)' }}>our people.</span>
         </h1>
       </div>
-      <div className="stat-strip" style={{ display:'flex', border:'1px solid var(--hair)', borderRight:0, marginBottom:32 }}>
-        <BKpi label="TOTAL"   value={view.length}/>
-        <BKpi label="ACTIVE"  value={view.filter((r: any) => r.status === 'active').length}/>
-        <BKpi label="PENDING" value={view.filter((r: any) => r.status === 'pending').length} sub="AWAITING REVIEW"/>
-        <BKpi label="REVENUE" value={'$' + (view.reduce((s: number, r: any) => s + r.rev, 0) / 1000).toFixed(0) + 'k'} sub="ALL TIME"/>
-      </div>
+      {isLoading ? (
+        <div style={{ padding:'40px', textAlign:'center', color:'var(--t-4)' }}>Loading recruiters...</div>
+      ) : (
+        <div className="stat-strip" style={{ display:'flex', border:'1px solid var(--hair)', borderRight:0, marginBottom:32 }}>
+          <BKpi label="TOTAL"   value={view.length}/>
+          <BKpi label="ACTIVE"  value={view.filter((r: any) => r.status === 'active').length}/>
+          <BKpi label="PENDING" value={view.filter((r: any) => r.status === 'pending').length} sub="AWAITING REVIEW"/>
+          <BKpi label="REVENUE" value={'$' + (view.reduce((s: number, r: any) => s + (r.rev || 0), 0) / 1000).toFixed(0) + 'k'} sub="ALL TIME"/>
+        </div>
+      )}
       <div style={{ borderBottom:'1px solid var(--hair)', display:'flex', gap:28, alignItems:'flex-end', marginBottom:20, flexWrap:'wrap' }}>
         {tabs.map(t => {
           const A = tab === t.k;
@@ -238,7 +242,7 @@ export function AdminRecruiters() {
             </div>
           </div>
         ))}
-        {!items.length && <div style={{ padding:'60px 20px', textAlign:'center', color:'var(--t-4)', fontStyle:'italic', fontFamily:'var(--serif)' }}>No recruiters in this bucket.</div>}
+        {!items.length && <div style={{ padding:'60px 20px', textAlign:'center', color:'var(--t-4)', fontStyle:'italic', fontFamily:'var(--serif)' }}>{isLoading ? 'Loading...' : 'No recruiters found. Add recruiters in user_profiles with user_type = recruiter.'}</div>}
       </div>
       {drawer && <RecruiterDrawer recruiter={drawer} onClose={() => setDrawer(null)} onApprove={approve} onReject={reject} onRevoke={revoke} onRestore={restore} roles={roles}/>}
     </div>

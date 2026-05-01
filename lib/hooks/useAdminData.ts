@@ -39,9 +39,12 @@ async function fetchApplications() {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('applications')
-    .select('*, roles(title, company_name)')
+    .select('*, roles(id, title, company_name, location, status)')
     .order('created_at', { ascending: false })
-  if (error) throw error
+  if (error) {
+    console.error('[v0] Error fetching applications:', error)
+    return []
+  }
   return data || []
 }
 
@@ -51,12 +54,13 @@ async function fetchRecruiters() {
     .from('user_profiles')
     .select(`
       *,
-      agencies(name),
-      agency_placements!agency_placements_recruiter_id_fkey(id, total_bounty, recruiter_amount)
+      agencies(name)
     `)
-    .in('user_type', ['recruiter', 'agency_recruiter', 'agency_owner', 'agency_admin'])
     .order('created_at', { ascending: false })
-  if (error) throw error
+  if (error) {
+    console.error('[v0] Error fetching recruiters:', error)
+    return []
+  }
   return data || []
 }
 
@@ -64,9 +68,12 @@ async function fetchPlacements() {
   const supabase = createClient()
   const { data, error } = await supabase
     .from('agency_placements')
-    .select('*, roles(title, company_name), user_profiles!agency_placements_recruiter_id_fkey(full_name, email)')
+    .select('*')
     .order('created_at', { ascending: false })
-  if (error) throw error
+  if (error) {
+    console.error('[v0] Error fetching placements:', error)
+    return []
+  }
   return data || []
 }
 
@@ -292,20 +299,23 @@ export function transformRecruitersForUI(recruiters: any[], applications: any[])
     }
   })
 
-  return recruiters.map(r => {
-    const placements = r.agency_placements || []
-    const totalRev = placements.reduce((sum: number, p: any) => sum + (p.recruiter_amount || 0), 0)
-    
+  // Filter to only show recruiter-type users
+  const recruiterTypes = ['recruiter', 'agency_recruiter', 'agency_owner', 'agency_admin']
+  const filteredRecruiters = recruiters.filter(r => 
+    recruiterTypes.includes(r.user_type) || recruiterTypes.includes(r.role)
+  )
+
+  return filteredRecruiters.map(r => {
     return {
       id: r.id,
       name: r.full_name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Unknown',
       org: r.agencies?.name || 'Independent',
       status: r.status || 'pending',
-      tier: r.role || 'recruiter',
-      roles: 0, // Would need recruiter_role_assignments count
+      tier: r.role || r.user_type || 'recruiter',
+      roles: 0,
       submitted: appCountByRecruiter[r.id] || 0,
-      placed: placements.length,
-      rev: totalRev,
+      placed: 0,
+      rev: 0,
       fee: r.bounty_percentage ? `${r.bounty_percentage}%` : '20%',
       joined: formatDate(r.created_at),
       email: r.email,
