@@ -206,6 +206,8 @@ export function transformRolesForUI(roles: any[], applications: any[]) {
 
   return roles.map((role, index) => {
     const pipeline = appsByStatus[role.id] || {}
+    // Map DB status to UI status: 'active' -> 'open', 'closed' -> 'paused'
+    const uiStatus = role.status === 'active' ? 'open' : role.status === 'closed' ? 'paused' : role.status || 'open'
     return {
       id: role.id,
       num: `R-${String(index + 1).padStart(5, '0')}`,
@@ -213,7 +215,7 @@ export function transformRolesForUI(roles: any[], applications: any[]) {
       title: role.title || 'Untitled Role',
       location: role.location || 'Remote',
       workMode: role.remote_policy || 'Remote',
-      status: role.status || 'open',
+      status: uiStatus,
       salary: role.salary_range || 'Competitive',
       opened: formatTimeAgo(role.created_at),
       focused: role.focus_this_week || false,
@@ -302,11 +304,13 @@ export function transformRecruitersForUI(recruiters: any[], applications: any[])
   // Show all users from user_profiles - don't filter by user_type
   // The admin might want to see all users, and recruiters may have various types
   return recruiters.map(r => {
+    // Map DB status to UI status: 'approved' -> 'active', 'rejected' -> 'revoked', 'pending' -> 'pending'
+    const uiStatus = r.status === 'approved' ? 'active' : r.status === 'rejected' ? 'revoked' : r.status || 'pending'
     return {
       id: r.id,
       name: r.full_name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || r.email || 'Unknown',
       org: r.agencies?.name || r.agency_name || 'Independent',
-      status: r.status || 'active',
+      status: uiStatus,
       tier: r.role || r.user_type || 'recruiter',
       roles: 0,
       submitted: appCountByRecruiter[r.id] || 0,
@@ -364,6 +368,7 @@ function daysSince(dateString: string | null): number {
 function mapStatusToStage(status: string | null): string {
   const mapping: Record<string, string> = {
     'new': 'New',
+    'pending': 'New', // Map pending to New stage
     'screening': 'Screening',
     'phone': 'Phone',
     'technical': 'Technical',
