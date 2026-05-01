@@ -50,6 +50,11 @@ async function fetchApplications() {
 
 async function fetchRecruiters() {
   const supabase = createClient()
+  
+  // Check if user is authenticated
+  const { data: { session } } = await supabase.auth.getSession()
+  console.log('[v0] fetchRecruiters - session:', session ? 'exists' : 'null')
+  
   const { data, error } = await supabase
     .from('user_profiles')
     .select(`
@@ -57,6 +62,9 @@ async function fetchRecruiters() {
       agencies(name)
     `)
     .order('created_at', { ascending: false })
+  
+  console.log('[v0] fetchRecruiters - count:', data?.length, 'error:', error?.message)
+  
   if (error) {
     console.error('[v0] Error fetching recruiters:', error)
     return []
