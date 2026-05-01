@@ -124,12 +124,16 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                 <span className="mono" style={{ fontSize:10, letterSpacing:'.12em', color:'var(--t-4)' }}>{c.num}</span>
                 <button onClick={() => onCandidate && onCandidate(c)} style={{ all:'unset', cursor:'pointer', display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
-                  <div style={{ width:32, height:32, borderRadius:999, background:'var(--ink)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--serif)', fontSize:12, fontStyle:'italic', flexShrink:0 }}>{c.initials}</div>
+                  {c.profileImage ? (
+                    <img src={c.profileImage} alt={c.name} style={{ width:36, height:36, borderRadius:999, objectFit:'cover', flexShrink:0, border:'2px solid var(--hair)' }}/>
+                  ) : (
+                    <div style={{ width:36, height:36, borderRadius:999, background:'var(--ink)', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--serif)', fontSize:13, fontStyle:'italic', flexShrink:0 }}>{c.initials}</div>
+                  )}
                   <div style={{ minWidth:0 }}>
-                    <div style={{ fontFamily:'var(--serif)', fontSize:16, fontStyle:'italic', letterSpacing:'-0.01em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    <div style={{ fontFamily:'var(--serif)', fontSize:16, fontStyle:'italic', letterSpacing:'-0.01em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:200 }}>
                       {c.name}{c.flagged && <span className="mono" style={{ fontSize:9, color:'var(--err)', marginLeft:8 }}>⚑</span>}
                     </div>
-                    <div className="mono" style={{ fontSize:10, letterSpacing:'.12em', color:'var(--t-4)', marginTop:2 }}>{c.current?.toUpperCase()} · {c.years}Y</div>
+                    <div className="mono" style={{ fontSize:9, letterSpacing:'.12em', color:'var(--t-4)', marginTop:2 }}>{c.email}</div>
                   </div>
                 </button>
                 <div style={{ position:'relative' }}>

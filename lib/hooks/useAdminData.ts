@@ -3,6 +3,38 @@
 import useSWR from 'swr'
 import { createClient } from '@/lib/supabase/client'
 
+// ==================== CONSTANTS & HELPERS ====================
+
+// Pipeline stages in order - these are the stages shown in the admin UI
+export const PIPELINE_STAGES = ['New', 'Screening', 'Phone', 'Technical', 'Sent to Client', 'On-site', 'Offer', 'Hired', 'Rejected'] as const;
+
+function mapStatusToStage(status: string | null): string {
+  // Map database status values to UI stage names
+  const mapping: Record<string, string> = {
+    'new': 'New',
+    'pending': 'New', // Pending applications are in New stage
+    'submitted': 'New',
+    'screening': 'Screening',
+    'phone': 'Phone',
+    'phone_screen': 'Phone',
+    'technical': 'Technical',
+    'technical_interview': 'Technical',
+    'sent_to_client': 'Sent to Client',
+    'client_review': 'Sent to Client',
+    'onsite': 'On-site',
+    'onsite_interview': 'On-site',
+    'final_interview': 'On-site',
+    'offer': 'Offer',
+    'offer_extended': 'Offer',
+    'hired': 'Hired',
+    'accepted': 'Hired',
+    'rejected': 'Rejected',
+    'declined': 'Rejected',
+    'withdrawn': 'Rejected',
+  }
+  return mapping[status?.toLowerCase() || 'new'] || 'New'
+}
+
 // ==================== SWR FETCHERS ====================
 
 async function fetchOrganizations() {
@@ -201,23 +233,32 @@ export function transformOrgsForUI(orgs: any[], agencies: any[]) {
 }
 
 export function transformRolesForUI(roles: any[], applications: any[]) {
-  // Count applications per role
+  // Count applications per role, grouped by UI stage (not DB status)
   const appCountByRole: Record<string, number> = {}
-  const appsByStatus: Record<string, Record<string, number>> = {}
+  const appsByStage: Record<string, Record<string, number>> = {}
   
   applications.forEach((app: any) => {
     if (app.role_id) {
       appCountByRole[app.role_id] = (appCountByRole[app.role_id] || 0) + 1
-      if (!appsByStatus[app.role_id]) {
-        appsByStatus[app.role_id] = {}
+      if (!appsByStage[app.role_id]) {
+        // Initialize all stages to 0
+        appsByStage[app.role_id] = {
+          'New': 0, 'Screening': 0, 'Phone': 0, 'Technical': 0,
+          'Sent to Client': 0, 'On-site': 0, 'Offer': 0, 'Hired': 0, 'Rejected': 0
+        }
       }
-      const status = app.status || 'new'
-      appsByStatus[app.role_id][status] = (appsByStatus[app.role_id][status] || 0) + 1
+      // Map the DB status to UI stage and increment
+      const stage = mapStatusToStage(app.status)
+      appsByStage[app.role_id][stage] = (appsByStage[app.role_id][stage] || 0) + 1
     }
   })
 
   return roles.map((role, index) => {
-    const pipeline = appsByStatus[role.id] || {}
+    // Get pipeline with all stages initialized
+    const pipeline = appsByStage[role.id] || {
+      'New': 0, 'Screening': 0, 'Phone': 0, 'Technical': 0,
+      'Sent to Client': 0, 'On-site': 0, 'Offer': 0, 'Hired': 0, 'Rejected': 0
+    }
     // Map DB status to UI status: 'active' -> 'open', 'closed' -> 'paused'
     const uiStatus = role.status === 'active' ? 'open' : role.status === 'closed' ? 'paused' : role.status || 'open'
     return {
@@ -234,17 +275,7 @@ export function transformRolesForUI(roles: any[], applications: any[]) {
       confidential: role.is_hidden || false,
       recruiters: 0, // Would need recruiter_role_assignments
       candidates: appCountByRole[role.id] || 0,
-      pipeline: {
-        New: pipeline['new'] || 0,
-        Screening: pipeline['screening'] || 0,
-        Phone: pipeline['phone'] || 0,
-        Technical: pipeline['technical'] || 0,
-        SentToClient: pipeline['sent_to_client'] || 0,
-        OnSite: pipeline['onsite'] || 0,
-        Offer: pipeline['offer'] || 0,
-        Hired: pipeline['hired'] || 0,
-        Rejected: pipeline['rejected'] || 0,
-      },
+      pipeline,
       age: daysSince(role.created_at),
       tta: '—',
       fee: role.recruiter_percentage ? `${role.recruiter_percentage}%` : '20%',
@@ -377,20 +408,4 @@ function daysSince(dateString: string | null): number {
   const date = new Date(dateString)
   const now = new Date()
   return Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
-}
-
-function mapStatusToStage(status: string | null): string {
-  const mapping: Record<string, string> = {
-    'new': 'New',
-    'pending': 'New', // Map pending to New stage
-    'screening': 'Screening',
-    'phone': 'Phone',
-    'technical': 'Technical',
-    'sent_to_client': 'Sent to Client',
-    'onsite': 'On-site',
-    'offer': 'Offer',
-    'hired': 'Hired',
-    'rejected': 'Rejected'
-  }
-  return mapping[status || 'new'] || 'New'
 }
