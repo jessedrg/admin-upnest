@@ -242,7 +242,18 @@ export function AdminRecruiters() {
             </div>
           </div>
         ))}
-        {!items.length && <div style={{ padding:'60px 20px', textAlign:'center', color:'var(--t-4)', fontStyle:'italic', fontFamily:'var(--serif)' }}>{isLoading ? 'Loading...' : 'No recruiters found. Add recruiters in user_profiles with user_type = recruiter.'}</div>}
+        {!items.length && (
+          <div style={{ padding:'60px 20px', textAlign:'center', color:'var(--t-4)', fontStyle:'italic', fontFamily:'var(--serif)' }}>
+            {isLoading ? 'Loading...' : (
+              <div>
+                <div>No recruiters in this view.</div>
+                <div className="mono" style={{ fontSize:10, marginTop:12, fontStyle:'normal', color:'var(--t-4)' }}>
+                  Total in database: {recruitersData?.length || 0} user profiles
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
       {drawer && <RecruiterDrawer recruiter={drawer} onClose={() => setDrawer(null)} onApprove={approve} onReject={reject} onRevoke={revoke} onRestore={restore} roles={roles}/>}
     </div>

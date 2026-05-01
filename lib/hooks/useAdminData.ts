@@ -299,18 +299,14 @@ export function transformRecruitersForUI(recruiters: any[], applications: any[])
     }
   })
 
-  // Filter to only show recruiter-type users
-  const recruiterTypes = ['recruiter', 'agency_recruiter', 'agency_owner', 'agency_admin']
-  const filteredRecruiters = recruiters.filter(r => 
-    recruiterTypes.includes(r.user_type) || recruiterTypes.includes(r.role)
-  )
-
-  return filteredRecruiters.map(r => {
+  // Show all users from user_profiles - don't filter by user_type
+  // The admin might want to see all users, and recruiters may have various types
+  return recruiters.map(r => {
     return {
       id: r.id,
-      name: r.full_name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Unknown',
-      org: r.agencies?.name || 'Independent',
-      status: r.status || 'pending',
+      name: r.full_name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || r.email || 'Unknown',
+      org: r.agencies?.name || r.agency_name || 'Independent',
+      status: r.status || 'active',
       tier: r.role || r.user_type || 'recruiter',
       roles: 0,
       submitted: appCountByRecruiter[r.id] || 0,
@@ -321,13 +317,14 @@ export function transformRecruitersForUI(recruiters: any[], applications: any[])
       email: r.email,
       phone: r.phone,
       linkedin: r.linkedin_url,
-      location: r.registration_country || '',
-      timezone: '',
+      location: r.registration_country || r.country || '',
+      timezone: r.timezone || '',
       portfolio: '',
       bio: r.bio || '',
       profilePicture: r.profile_picture_url,
       contractType: r.contract_type,
       contractSigned: r.contract_signed_at,
+      userType: r.user_type,
     }
   })
 }

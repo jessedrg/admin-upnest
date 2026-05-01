@@ -29,7 +29,8 @@ export function AdminStats() {
     { w:'W-01', submitted:96, hired:11 },{ w:'W-00', submitted: Math.max(totalSubmitted, 10), hired: totalHired },
   ];
   const maxS = Math.max(...weeks.map(w => w.submitted));
-  const leaders = [...recruiters].filter((r: any) => r.status === 'active').sort((a: any, b: any) => b.placed - a.placed).slice(0, 5);
+  // Show top 5 recruiters - sort by submitted since placed might be 0
+  const leaders = [...recruiters].sort((a: any, b: any) => (b.submitted || 0) - (a.submitted || 0)).slice(0, 5);
 
   return (
     <div className="pad-mobile" style={{ padding:'40px 48px 80px', maxWidth:1800 }}>
@@ -76,20 +77,28 @@ export function AdminStats() {
         </div>
       </div>
 
-      <BSec num="§ 02" title="Top recruiters" sub="BY PLACEMENTS"/>
+      <BSec num="§ 02" title="Top recruiters" sub={`${recruiters.length} TOTAL`}/>
       <BHair/>
       <div style={{ border:'1px solid var(--hair)', background:'#fff' }}>
-        {leaders.map((r: any, i: number) => (
+        {recruiters.length === 0 ? (
+          <div style={{ padding:'40px 20px', textAlign:'center', color:'var(--t-4)', fontStyle:'italic', fontFamily:'var(--serif)' }}>
+            No recruiters found in the database.
+          </div>
+        ) : leaders.length === 0 ? (
+          <div style={{ padding:'40px 20px', textAlign:'center', color:'var(--t-4)', fontStyle:'italic', fontFamily:'var(--serif)' }}>
+            No active recruiters yet.
+          </div>
+        ) : leaders.map((r: any, i: number) => (
           <div key={r.id} style={{ display:'grid', gridTemplateColumns:'40px 1.4fr 1fr 90px 100px 120px', gap:14, padding:'16px 20px', borderBottom: i < leaders.length - 1 ? '1px solid var(--hair)' : 'none', alignItems:'center' }}>
             <span className="serif" style={{ fontSize:22, fontStyle:'italic', color:'var(--t-4)' }}>{i + 1}</span>
             <div>
               <div style={{ fontFamily:'var(--serif)', fontSize:17, fontStyle:'italic' }}>{r.name}</div>
-              <div className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--t-4)', marginTop:2 }}>{r.org.toUpperCase()}</div>
+              <div className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--t-4)', marginTop:2 }}>{(r.org || '').toUpperCase()}</div>
             </div>
-            <div><BMini value={r.placed} max={leaders[0].placed}/></div>
-            <div className="mono" style={{ fontSize:11 }}>{r.placed} PLACED</div>
-            <div className="mono" style={{ fontSize:11, color:'var(--t-3)' }}>{r.submitted} SUB.</div>
-            <div className="mono" style={{ fontSize:11, color:'var(--t-2)' }}>${(r.rev / 1000).toFixed(0)}k</div>
+            <div><BMini value={r.placed || 0} max={(leaders[0]?.placed || 1)}/></div>
+            <div className="mono" style={{ fontSize:11 }}>{r.placed || 0} PLACED</div>
+            <div className="mono" style={{ fontSize:11, color:'var(--t-3)' }}>{r.submitted || 0} SUB.</div>
+            <div className="mono" style={{ fontSize:11, color:'var(--t-2)' }}>${((r.rev || 0) / 1000).toFixed(0)}k</div>
           </div>
         ))}
       </div>
