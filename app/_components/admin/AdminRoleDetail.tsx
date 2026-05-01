@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import ADMIN_DATA from './AdminData';
+import { useApplications, transformCandidatesForUI } from '@/lib/hooks/useAdminData';
 import { Chip as AChip } from './AdminViews';
 import { showToast } from './Toast';
 import { useCandidateStore } from './CandidateStore';
@@ -19,13 +19,24 @@ function PipelineBar({ pipeline }: any) {
 }
 
 export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
-  const d = ADMIN_DATA;
+  const { data: applicationsData } = useApplications();
+  const allCandidates = transformCandidatesForUI(applicationsData || []);
+  
   const r = role;
   const [tab, setTab] = useState<'candidates'|'brief'|'activity'>('candidates');
   const { setStage: storeSetStage, STAGES } = useCandidateStore();
   const [stageMenuFor, setStageMenuFor] = useState<string | null>(null);
 
-  const roleCandidates = d.candidates.filter((c: any) => c.role === r?.title || c.org === r?.org);
+  const roleCandidates = allCandidates.filter((c: any) => c.roleId === r?.id || c.role === r?.title);
+  
+  // Generate activity from candidates
+  const activity = roleCandidates.slice(0, 8).map((c: any) => ({
+    id: c.id,
+    actor: c.name,
+    verb: `is at ${c.stage} stage`,
+    target: r?.title || '',
+    at: c.submitted
+  }));
 
   if (!r) return (
     <div style={{ padding:40, fontFamily:'var(--serif)', fontStyle:'italic', color:'var(--t-4)' }}>
@@ -177,7 +188,8 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
         <div>
           <div className="mono" style={{ fontSize:10, letterSpacing:'.18em', color:'var(--t-4)', marginBottom:14 }}>§ RECENT ACTIVITY</div>
           <div style={{ borderTop:'1px solid var(--hair)' }}>
-            {d.activity.slice(0, 8).map((a: any) => (
+            {activity.length === 0 && <div style={{ padding:'20px 0', color:'var(--t-4)', fontStyle:'italic' }}>No activity yet for this role.</div>}
+            {activity.map((a: any) => (
               <div key={a.id} style={{ padding:'16px 0', borderBottom:'1px solid var(--hair)', display:'grid', gridTemplateColumns:'100px 1fr', gap:16, alignItems:'baseline' }}>
                 <span className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--t-4)' }}>{a.at?.toUpperCase()}</span>
                 <div>

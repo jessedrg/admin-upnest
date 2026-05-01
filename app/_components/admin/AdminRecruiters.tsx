@@ -1,10 +1,10 @@
 'use client';
 import React, { useState } from 'react';
-import ADMIN_DATA from './AdminData';
+import { useRecruiters, useApplications, useRoles, transformRecruitersForUI, transformRolesForUI } from '@/lib/hooks/useAdminData';
 import { KpiTile as BKpi, Chip as BChip } from './AdminViews';
 import { showToast } from './Toast';
 
-function RecruiterDrawer({ recruiter, onClose, onApprove, onReject, onRevoke, onRestore }: any) {
+function RecruiterDrawer({ recruiter, onClose, onApprove, onReject, onRevoke, onRestore, roles = [] }: any) {
   const r = recruiter;
   const conv = r.submitted > 0 ? Math.round((r.placed / r.submitted) * 100) : 0;
   const weeks = [3, 5, 7, 4, 6, 8, 5, 4];
@@ -130,7 +130,7 @@ function RecruiterDrawer({ recruiter, onClose, onApprove, onReject, onRevoke, on
               </div>
               <div className="mono" style={{ fontSize:10, letterSpacing:'.2em', color:'var(--t-4)', marginBottom:10 }}>§ ACTIVE ROLES</div>
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {ADMIN_DATA.roles.slice(0, Math.min(r.roles, 3)).map((role: any) => (
+                {roles.slice(0, Math.min(r.roles || 3, 3)).map((role: any) => (
                   <div key={role.id} style={{ display:'flex', justifyContent:'space-between', padding:'10px 14px', border:'1px solid var(--hair)', borderRadius:2 }}>
                     <div>
                       <div style={{ fontFamily:'var(--serif)', fontSize:15, fontStyle:'italic', letterSpacing:'-0.01em' }}>{role.title}</div>
@@ -155,13 +155,20 @@ function RecruiterDrawer({ recruiter, onClose, onApprove, onReject, onRevoke, on
 }
 
 export function AdminRecruiters() {
-  const d = ADMIN_DATA;
-  const [tab, setTab] = useState('pending');
+  const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
+  const { data: applicationsData, isLoading: appsLoading } = useApplications();
+  const { data: rolesData, isLoading: rolesLoading } = useRoles();
+  
+  const [tab, setTab] = useState('all');
   const [drawer, setDrawer] = useState<any>(null);
   const [overrides, setOverrides] = useState<Record<string, any>>({});
 
+  const recruiters = transformRecruitersForUI(recruitersData || [], applicationsData || []);
+  const roles = transformRolesForUI(rolesData || [], applicationsData || []);
+  const isLoading = recruitersLoading || appsLoading || rolesLoading;
+
   const patch = (id: string, p: any) => setOverrides(o => ({ ...o, [id]: { ...o[id], ...p } }));
-  const view = d.recruiters.map((r: any) => ({ ...r, ...(overrides[r.id] || {}) }));
+  const view = recruiters.map((r: any) => ({ ...r, ...(overrides[r.id] || {}) }));
 
   const tabs = [
     { k:'all',     l:'All',     n: view.length },
@@ -233,7 +240,7 @@ export function AdminRecruiters() {
         ))}
         {!items.length && <div style={{ padding:'60px 20px', textAlign:'center', color:'var(--t-4)', fontStyle:'italic', fontFamily:'var(--serif)' }}>No recruiters in this bucket.</div>}
       </div>
-      {drawer && <RecruiterDrawer recruiter={drawer} onClose={() => setDrawer(null)} onApprove={approve} onReject={reject} onRevoke={revoke} onRestore={restore}/>}
+      {drawer && <RecruiterDrawer recruiter={drawer} onClose={() => setDrawer(null)} onApprove={approve} onReject={reject} onRevoke={revoke} onRestore={restore} roles={roles}/>}
     </div>
   );
 }

@@ -1,26 +1,30 @@
 'use client';
 import React, { useState } from 'react';
-import ADMIN_DATA from './AdminData';
+import { useApplications, transformCandidatesForUI } from '@/lib/hooks/useAdminData';
 import Icons from './Icons';
 import { KpiTile as BKpi } from './AdminViews';
 import { useCandidateStore } from './CandidateStore';
 
+const STAGES = ['New', 'Screening', 'Phone', 'Technical', 'Sent to Client', 'On-site', 'Offer', 'Hired', 'Rejected'];
+
 export function AdminCandidates({ onCandidate }: any) {
-  const d = ADMIN_DATA;
+  const { data: applicationsData, isLoading } = useApplications();
+  const allCandidates = transformCandidatesForUI(applicationsData || []);
+  
   const [q, setQ] = useState('');
   const [stage, setStage] = useState('all');
   const [orgSel, setOrgSel] = useState('all');
   const [stageMenuFor, setStageMenuFor] = useState<string | null>(null);
-  const { setStage: storeSetStage, STAGES } = useCandidateStore();
+  const { setStage: storeSetStage, STAGES: storeStages } = useCandidateStore();
 
-  const candidates = d.candidates.filter((c: any) => {
+  const candidates = allCandidates.filter((c: any) => {
     if (stage !== 'all' && c.stage !== stage) return false;
     if (orgSel !== 'all' && c.org !== orgSel) return false;
-    if (q && !(c.name + ' ' + c.role + ' ' + c.org + ' ' + c.current).toLowerCase().includes(q.toLowerCase())) return false;
+    if (q && !(c.name + ' ' + c.role + ' ' + c.org + ' ' + (c.current || '')).toLowerCase().includes(q.toLowerCase())) return false;
     return true;
   });
 
-  const orgs = ['all', ...new Set(d.candidates.map((c: any) => c.org as string))];
+  const orgs = ['all', ...new Set(allCandidates.map((c: any) => c.org as string).filter(Boolean))];
 
   return (
     <div className="pad-mobile" style={{ padding:'40px 48px 80px', maxWidth:1800 }}>
@@ -31,13 +35,17 @@ export function AdminCandidates({ onCandidate }: any) {
         </h1>
       </div>
 
-      <div className="stat-strip" style={{ display:'flex', border:'1px solid var(--hair)', borderRight:0, marginBottom:32 }}>
-        <BKpi label="TOTAL"   value={d.candidates.length}/>
-        <BKpi label="HIRED"   value={d.candidates.filter((c: any) => c.stage === 'Hired').length}/>
-        <BKpi label="IN PIPE" value={d.candidates.filter((c: any) => c.stage !== 'Hired' && c.stage !== 'Rejected').length}/>
-        <BKpi label="SAVED"   value={d.candidates.filter((c: any) => c.saved).length}/>
-        <BKpi label="FLAGGED" value={d.candidates.filter((c: any) => c.flagged).length}/>
-      </div>
+      {isLoading ? (
+        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--t-4)' }}>Loading candidates...</div>
+      ) : (
+        <div className="stat-strip" style={{ display:'flex', border:'1px solid var(--hair)', borderRight:0, marginBottom:32 }}>
+          <BKpi label="TOTAL"   value={allCandidates.length}/>
+          <BKpi label="HIRED"   value={allCandidates.filter((c: any) => c.stage === 'Hired').length}/>
+          <BKpi label="IN PIPE" value={allCandidates.filter((c: any) => c.stage !== 'Hired' && c.stage !== 'Rejected').length}/>
+          <BKpi label="SAVED"   value={allCandidates.filter((c: any) => c.saved).length}/>
+          <BKpi label="FLAGGED" value={allCandidates.filter((c: any) => c.flagged).length}/>
+        </div>
+      )}
 
       <div style={{ display:'flex', alignItems:'center', gap:18, marginBottom:22, flexWrap:'wrap' }}>
         <div style={{ display:'flex', alignItems:'center', gap:6, border:'1px solid var(--hair)', borderRadius:999, padding:'6px 12px', minWidth:260 }}>
@@ -49,7 +57,7 @@ export function AdminCandidates({ onCandidate }: any) {
           <span className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--t-4)' }}>STAGE</span>
           <select value={stage} onChange={e => setStage(e.target.value)} style={{ border:'1px solid var(--hair)', borderRadius:999, padding:'6px 12px', fontSize:12, background:'#fff', fontFamily:'var(--sans)' }}>
             <option value="all">All</option>
-            {d.stages.map((s: string) => <option key={s} value={s}>{s}</option>)}
+            {STAGES.map((s: string) => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div style={{ display:'flex', alignItems:'center', gap:8 }}>

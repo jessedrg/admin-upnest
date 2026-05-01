@@ -1,18 +1,35 @@
 'use client';
 import React from 'react';
-import ADMIN_DATA from './AdminData';
+import { useRecruiters, useApplications, usePlacements, transformRecruitersForUI } from '@/lib/hooks/useAdminData';
 import { KpiTile as BKpi, SectionTitle as BSec, Hairline as BHair, Mini as BMini } from './AdminViews';
 
 export function AdminStats() {
-  const d = ADMIN_DATA;
+  const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
+  const { data: applicationsData, isLoading: appsLoading } = useApplications();
+  const { data: placementsData, isLoading: placementsLoading } = usePlacements();
+
+  const isLoading = recruitersLoading || appsLoading || placementsLoading;
+
+  // Transform recruiters data
+  const recruiters = transformRecruitersForUI(recruitersData || [], applicationsData || []);
+  
+  // Calculate stats from real data
+  const totalPlacements = placementsData?.length || 0;
+  const totalRevenue = placementsData?.reduce((sum: number, p: any) => sum + (p.total_bounty || 0), 0) || 0;
+  const activeRecruiters = recruiters.filter(r => r.status === 'active').length;
+  const totalSubmitted = applicationsData?.length || 0;
+  const totalHired = applicationsData?.filter((a: any) => a.status === 'hired').length || 0;
+  const conversionRate = totalSubmitted > 0 ? ((totalHired / totalSubmitted) * 100).toFixed(1) : '0';
+
+  // Mock weekly data - would need time-series queries for real data
   const weeks = [
     { w:'W-07', submitted:58, hired:4 },{ w:'W-06', submitted:64, hired:6 },
     { w:'W-05', submitted:71, hired:5 },{ w:'W-04', submitted:69, hired:8 },
     { w:'W-03', submitted:82, hired:7 },{ w:'W-02', submitted:78, hired:9 },
-    { w:'W-01', submitted:96, hired:11 },{ w:'W-00', submitted:104, hired:8 },
+    { w:'W-01', submitted:96, hired:11 },{ w:'W-00', submitted: Math.max(totalSubmitted, 10), hired: totalHired },
   ];
   const maxS = Math.max(...weeks.map(w => w.submitted));
-  const leaders = [...d.recruiters].filter((r: any) => r.status === 'active').sort((a: any, b: any) => b.placed - a.placed).slice(0, 5);
+  const leaders = [...recruiters].filter((r: any) => r.status === 'active').sort((a: any, b: any) => b.placed - a.placed).slice(0, 5);
 
   return (
     <div className="pad-mobile" style={{ padding:'40px 48px 80px', maxWidth:1800 }}>
@@ -23,13 +40,17 @@ export function AdminStats() {
         </h1>
       </div>
 
-      <div className="stat-strip" style={{ display:'flex', border:'1px solid var(--hair)', borderRight:0, marginBottom:40 }}>
-        <BKpi big label="GROSS REV."    value="$148.2k" delta={+14} sub="30 DAYS"/>
-        <BKpi label="PLACEMENTS"        value="47" delta={+6} sub="THIS QTR"/>
-        <BKpi label="AVG TIME TO HIRE"  value="38d" delta={-4} sub="IMPROVING"/>
-        <BKpi label="SUBMIT → HIRE"     value="8.2%" delta={+0.6}/>
-        <BKpi label="ACTIVE RECRUITERS" value={d.recruiters.filter((r: any) => r.status === 'active').length}/>
-      </div>
+      {isLoading ? (
+        <div style={{ padding: '40px', textAlign: 'center', color: 'var(--t-4)' }}>Loading stats...</div>
+      ) : (
+        <div className="stat-strip" style={{ display:'flex', border:'1px solid var(--hair)', borderRight:0, marginBottom:40 }}>
+          <BKpi big label="GROSS REV." value={`$${(totalRevenue / 1000).toFixed(1)}k`} delta={0} sub="ALL TIME"/>
+          <BKpi label="PLACEMENTS" value={String(totalPlacements)} delta={0} sub="TOTAL"/>
+          <BKpi label="SUBMITTED" value={String(totalSubmitted)} delta={0} sub="CANDIDATES"/>
+          <BKpi label="SUBMIT → HIRE" value={`${conversionRate}%`} delta={0}/>
+          <BKpi label="ACTIVE RECRUITERS" value={activeRecruiters}/>
+        </div>
+      )}
 
       <BSec num="§ 01" title="Submissions & hires" sub="PAST 8 WEEKS"/>
       <BHair/>

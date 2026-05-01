@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import ADMIN_DATA from './AdminData';
+import { useRoles, useApplications, transformRolesForUI } from '@/lib/hooks/useAdminData';
 import Icons from './Icons';
 import { KpiTile as AKpi, SectionTitle as ASec, Hairline as AHair, Chip as AChip } from './AdminViews';
 import { showToast } from './Toast';
@@ -245,15 +245,21 @@ function RoleSubmittalModal({ s, onClose, onApprove, onReject }: any) {
 }
 
 export function AdminRoles({ onCreateRole }: any) {
-  const d = ADMIN_DATA;
+  const { data: rolesData, isLoading: rolesLoading } = useRoles();
+  const { data: applicationsData, isLoading: appsLoading } = useApplications();
+  
   const [tab, setTab] = useState('all');
   const [org, setOrg] = useState('all');
   const [q, setQ] = useState('');
   const [overrides, setOverrides] = useState<Record<string, any>>({});
   const [reorder, setReorder] = useState(false);
   const [menuFor, setMenuFor] = useState<string | null>(null);
-  const [submittals, setSubmittals] = useState<any[]>(d.roleSubmittals || []);
+  const [submittals, setSubmittals] = useState<any[]>([]);
   const [submittalView, setSubmittalView] = useState<any>(null);
+
+  // Transform data from Supabase
+  const roles = transformRolesForUI(rolesData || [], applicationsData || []);
+  const isLoading = rolesLoading || appsLoading;
 
   const patchRole = (id: string, patch: any) => setOverrides(o => ({ ...o, [id]: { ...o[id], ...patch } }));
   const getRole = (r: any) => ({ ...r, ...(overrides[r.id] || {}) });
@@ -270,15 +276,15 @@ export function AdminRoles({ onCreateRole }: any) {
   };
 
   const tabs = [
-    { k:'all',    l:'All roles',    n: d.roles.length },
-    { k:'open',   l:'Open',         n: d.roles.filter((r: any) => r.status === 'open').length },
-    { k:'paused', l:'Paused',       n: d.roles.filter((r: any) => r.status === 'paused').length },
-    { k:'focus',  l:'Focused',      n: d.roles.filter((r: any) => r.focused).length },
-    { k:'stuck',  l:'Stuck · 30d+', n: d.roles.filter((r: any) => r.age >= 30).length },
+    { k:'all',    l:'All roles',    n: roles.length },
+    { k:'open',   l:'Open',         n: roles.filter((r: any) => r.status === 'open').length },
+    { k:'paused', l:'Paused',       n: roles.filter((r: any) => r.status === 'paused').length },
+    { k:'focus',  l:'Focused',      n: roles.filter((r: any) => r.focused).length },
+    { k:'stuck',  l:'Stuck · 30d+', n: roles.filter((r: any) => r.age >= 30).length },
   ];
 
   const priOrder: Record<string, number> = { high:0, med:1, low:2 };
-  const filtered = d.roles.map(getRole).filter((r: any) => {
+  const filtered = roles.map(getRole).filter((r: any) => {
     if (tab === 'open'   && r.status !== 'open')  return false;
     if (tab === 'paused' && r.status !== 'paused') return false;
     if (tab === 'focus'  && !r.focused) return false;
@@ -288,7 +294,7 @@ export function AdminRoles({ onCreateRole }: any) {
     return true;
   }).sort((a: any, b: any) => (priOrder[a.priority] ?? 9) - (priOrder[b.priority] ?? 9));
 
-  const orgs = ['all', ...new Set(d.roles.map((r: any) => r.org as string))];
+  const orgs = ['all', ...new Set(roles.map((r: any) => r.org as string).filter(Boolean))];
   const cols = reorder ? '36px 80px 1.2fr 1fr 90px 100px 90px 90px' : '80px 1.5fr 1fr 100px 120px 90px 90px 40px';
 
   return (

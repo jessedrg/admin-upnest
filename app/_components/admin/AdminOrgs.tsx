@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import ADMIN_DATA from './AdminData';
+import { useOrganizations, useAgencies, useRoles, useApplications, transformOrgsForUI, transformRolesForUI, transformCandidatesForUI } from '@/lib/hooks/useAdminData';
 import { KpiTile as BKpi, SectionTitle as BSec, Hairline as BHair, Chip as BChip, HealthDot as BHD } from './AdminViews';
 import { showToast } from './Toast';
 
@@ -165,10 +165,9 @@ function ApproveClientModal({ org, onClose, onApprove, onReject }: any) {
   );
 }
 
-function OrgDrawer({ org, onClose }: any) {
-  const d = ADMIN_DATA;
-  const orgRoles = d.roles.filter((r: any) => r.org === org.name);
-  const orgCandidates = d.candidates.filter((c: any) => c.org === org.name);
+function OrgDrawer({ org, onClose, roles = [], candidates = [] }: any) {
+  const orgRoles = roles.filter((r: any) => r.org === org.name);
+  const orgCandidates = candidates.filter((c: any) => c.org === org.name);
 
   return (
     <>
@@ -241,11 +240,21 @@ function OrgDrawer({ org, onClose }: any) {
 }
 
 export function AdminOrgs() {
-  const d = ADMIN_DATA;
+  const { data: orgsData, isLoading: orgsLoading } = useOrganizations();
+  const { data: agenciesData, isLoading: agenciesLoading } = useAgencies();
+  const { data: rolesData, isLoading: rolesLoading } = useRoles();
+  const { data: applicationsData, isLoading: appsLoading } = useApplications();
+  
   const [tab, setTab] = useState('all');
   const [open, setOpen] = useState<any>(null);
-  const [pendingOrgs, setPendingOrgs] = useState<any[]>([...(d.pendingOrgs || []), ...(d.pendingAgencies || [])]);
+  const [pendingOrgs, setPendingOrgs] = useState<any[]>([]);
   const [approving, setApproving] = useState<any>(null);
+
+  // Transform data
+  const allOrgs = transformOrgsForUI(orgsData || [], agenciesData || []);
+  const roles = transformRolesForUI(rolesData || [], applicationsData || []);
+  const candidates = transformCandidatesForUI(applicationsData || []);
+  const isLoading = orgsLoading || agenciesLoading || rolesLoading || appsLoading;
 
   const approvePending = (p: any, _terms: any) => {
     setPendingOrgs(list => list.filter((x: any) => x.id !== p.id));
@@ -259,14 +268,14 @@ export function AdminOrgs() {
   };
 
   const tabs = [
-    { k:'all',     l:'All',       n: d.orgs.length },
-    { k:'company', l:'Companies', n: d.orgs.filter((o: any) => o.type === 'company').length },
-    { k:'agency',  l:'Agencies',  n: d.orgs.filter((o: any) => o.type === 'agency').length },
-    { k:'at-risk', l:'At risk',   n: d.orgs.filter((o: any) => o.health === 'at-risk').length },
-    { k:'dormant', l:'Dormant',   n: d.orgs.filter((o: any) => o.health === 'dormant').length },
+    { k:'all',     l:'All',       n: allOrgs.length },
+    { k:'company', l:'Companies', n: allOrgs.filter((o: any) => o.type === 'company').length },
+    { k:'agency',  l:'Agencies',  n: allOrgs.filter((o: any) => o.type === 'agency').length },
+    { k:'at-risk', l:'At risk',   n: allOrgs.filter((o: any) => o.health === 'at-risk').length },
+    { k:'dormant', l:'Dormant',   n: allOrgs.filter((o: any) => o.health === 'dormant').length },
   ];
 
-  const orgs = d.orgs.filter((o: any) => {
+  const orgs = allOrgs.filter((o: any) => {
     if (tab === 'company' && o.type !== 'company') return false;
     if (tab === 'agency'  && o.type !== 'agency')  return false;
     if (tab === 'at-risk' && o.health !== 'at-risk') return false;
@@ -361,7 +370,7 @@ export function AdminOrgs() {
         ))}
       </div>
 
-      {open && <OrgDrawer org={open} onClose={() => setOpen(null)}/>}
+      {open && <OrgDrawer org={open} onClose={() => setOpen(null)} roles={roles} candidates={candidates}/>}
       {approving && <ApproveClientModal org={approving} onClose={() => setApproving(null)} onApprove={approvePending} onReject={() => rejectPending(approving)}/>}
     </div>
   );

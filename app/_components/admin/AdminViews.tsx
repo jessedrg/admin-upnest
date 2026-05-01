@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import ADMIN_DATA from './AdminData';
+import { useOrganizations, useAgencies, useRoles, useApplications, useRecruiters, transformOrgsForUI, transformRolesForUI, transformCandidatesForUI, transformRecruitersForUI } from '@/lib/hooks/useAdminData';
 
 /* ========================= shared pieces ========================= */
 
@@ -84,12 +84,36 @@ export const AdminShared = { KpiTile, SectionTitle, Hairline, Chip, HealthDot, M
 
 /* ========================= Overview ========================= */
 
+const STAGES = ['New', 'Screening', 'Phone', 'Technical', 'Sent to Client', 'On-site', 'Offer', 'Hired', 'Rejected'];
+
 export function AdminOverview({ onNavigate }: any) {
-  const d = ADMIN_DATA;
-  const totalMrr = d.orgs.reduce((s: number, o: any) => s + o.mrr, 0);
-  const totalCands = d.candidates.length;
-  const openRoles = d.roles.filter((r: any) => r.status === 'open').length;
-  const pendingRecruiters = d.recruiters.filter((r: any) => r.status === 'pending').length;
+  const { data: orgsData, isLoading: orgsLoading } = useOrganizations();
+  const { data: agenciesData, isLoading: agenciesLoading } = useAgencies();
+  const { data: rolesData, isLoading: rolesLoading } = useRoles();
+  const { data: applicationsData, isLoading: appsLoading } = useApplications();
+  const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
+
+  // Transform data
+  const orgs = transformOrgsForUI(orgsData || [], agenciesData || []);
+  const roles = transformRolesForUI(rolesData || [], applicationsData || []);
+  const candidates = transformCandidatesForUI(applicationsData || []);
+  const recruiters = transformRecruitersForUI(recruitersData || [], applicationsData || []);
+  const isLoading = orgsLoading || agenciesLoading || rolesLoading || appsLoading || recruitersLoading;
+
+  const totalMrr = orgs.reduce((s: number, o: any) => s + (o.mrr || 0), 0);
+  const totalCands = candidates.length;
+  const openRoles = roles.filter((r: any) => r.status === 'open').length;
+  const pendingRecruiters = recruiters.filter((r: any) => r.status === 'pending').length;
+
+  // Generate activity from recent applications
+  const activity = applicationsData?.slice(0, 10).map((app: any) => ({
+    id: app.id,
+    actor: app.candidate_name || 'Unknown',
+    verb: getStatusVerb(app.status),
+    target: app.roles?.title || 'Unknown Role',
+    to: app.roles?.company_name || '',
+    at: formatTimeAgo(app.updated_at || app.created_at),
+  })) || [];
 
   return (
     <div className="pad-mobile" style={{ padding:'40px 48px 80px', maxWidth: 1800 }}>
@@ -99,15 +123,15 @@ export function AdminOverview({ onNavigate }: any) {
           The whole platform,<br/><span style={{ color:'var(--t-4)' }}>one page.</span>
         </h1>
         <div className="mono" style={{ fontSize:11, letterSpacing:'.14em', color:'var(--t-4)', marginTop:14 }}>
-          LAST SYNC · 2 MIN AGO · {d.orgs.length} ORGS · {d.recruiters.length} RECRUITERS · {d.roles.length} ROLES
+          {isLoading ? 'LOADING...' : `LIVE DATA · ${orgs.length} ORGS · ${recruiters.length} RECRUITERS · ${roles.length} ROLES`}
         </div>
       </div>
 
       <div className="stat-strip" style={{ display:'flex', border:'1px solid var(--hair)', borderRight:0, marginBottom:40 }}>
-        <KpiTile label="MRR"          value={'$' + (totalMrr/1000).toFixed(1) + 'K'} delta={+12} sub="vs last mo"/>
-        <KpiTile label="ORGS"         value={d.orgs.length} delta={+2} sub="2 new this mo"/>
-        <KpiTile label="OPEN ROLES"   value={openRoles} delta={+4} sub="across 5 orgs"/>
-        <KpiTile label="CANDIDATES"   value={totalCands} delta={+18} sub="this month"/>
+        <KpiTile label="MRR"          value={'$' + (totalMrr/1000).toFixed(1) + 'K'} delta={0} sub="from DB"/>
+        <KpiTile label="ORGS"         value={orgs.length} delta={0} sub="total"/>
+        <KpiTile label="OPEN ROLES"   value={openRoles} delta={0} sub={`of ${roles.length}`}/>
+        <KpiTile label="CANDIDATES"   value={totalCands} delta={0} sub="total"/>
         <KpiTile label="PENDING REC." value={pendingRecruiters} sub="awaiting approval"/>
       </div>
 
@@ -116,11 +140,11 @@ export function AdminOverview({ onNavigate }: any) {
           <SectionTitle num="§ 01" title="Pipeline health" sub="BY STAGE"/>
           <Hairline/>
           <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
-            {d.stages.map((s: string, i: number) => {
-              const total = d.candidates.filter((c: any) => c.stage === s).length;
-              const pct = (total / d.candidates.length) * 100;
+            {STAGES.map((s: string, i: number) => {
+              const total = candidates.filter((c: any) => c.stage === s).length;
+              const pct = candidates.length > 0 ? (total / candidates.length) * 100 : 0;
               return (
-                <div key={s} style={{ display:'grid', gridTemplateColumns:'160px 1fr 60px', gap:16, alignItems:'center', padding:'8px 0', borderBottom: i < d.stages.length-1 ? '1px solid var(--hair)' : 'none' }}>
+                <div key={s} style={{ display:'grid', gridTemplateColumns:'160px 1fr 60px', gap:16, alignItems:'center', padding:'8px 0', borderBottom: i < STAGES.length-1 ? '1px solid var(--hair)' : 'none' }}>
                   <div style={{ fontFamily:'var(--serif)', fontSize:16, fontStyle:'italic' }}>{s}</div>
                   <div style={{ height:4, background:'var(--hair)', borderRadius:2, overflow:'hidden' }}>
                     <div style={{ width: pct+'%', height:'100%', background: s==='Hired' ? 'var(--ok)' : s==='Rejected' ? 'var(--err)' : 'var(--ink)' }}/>
@@ -135,7 +159,7 @@ export function AdminOverview({ onNavigate }: any) {
             <SectionTitle num="§ 02" title="Organizations at a glance"/>
             <Hairline/>
             <div style={{ display:'flex', flexDirection:'column' }}>
-              {d.orgs.slice(0,6).map((o: any, i: number) => (
+              {orgs.slice(0,6).map((o: any, i: number) => (
                 <button key={o.id} onClick={() => onNavigate && onNavigate('organizations')}
                   style={{
                     appearance:'none', textAlign:'left', width:'100%', border:0, background:'transparent', cursor:'pointer',
@@ -165,7 +189,8 @@ export function AdminOverview({ onNavigate }: any) {
           <SectionTitle num="§ 03" title="Live activity"/>
           <Hairline/>
           <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-            {d.activity.map((a: any) => (
+            {activity.length === 0 && <div style={{ color:'var(--t-4)', fontStyle:'italic', padding:'20px 0' }}>No activity yet</div>}
+            {activity.map((a: any) => (
               <div key={a.id} style={{ padding:'14px 0', borderBottom:'1px solid var(--hair)' }}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', gap:12 }}>
                   <div style={{ minWidth:0 }}>
@@ -184,6 +209,36 @@ export function AdminOverview({ onNavigate }: any) {
       </div>
     </div>
   );
+}
+
+function getStatusVerb(status: string): string {
+  const verbs: Record<string, string> = {
+    'new': 'applied to',
+    'screening': 'moved to screening for',
+    'phone': 'scheduled phone screen for',
+    'technical': 'in technical review for',
+    'sent_to_client': 'sent to client for',
+    'onsite': 'scheduled onsite for',
+    'offer': 'received offer for',
+    'hired': 'was hired for',
+    'rejected': 'was rejected for'
+  }
+  return verbs[status] || `status changed to ${status} for`
+}
+
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHours / 24)
+
+  if (diffMins < 1) return 'just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHours < 24) return `${diffHours}h ago`
+  if (diffDays < 7) return `${diffDays}d ago`
+  return date.toLocaleDateString()
 }
 
 export default AdminOverview;
