@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
 const inputStyle: React.CSSProperties = {
   width:'100%', padding:'14px 16px',
@@ -18,9 +19,77 @@ const adminInputStyle: React.CSSProperties = {
   outline:'none', letterSpacing:'.04em',
 };
 
-export function AdminLogin({ onEnter }: any) {
-  const [op, setOp]     = useState('alex.stein');
-  const [code, setCode] = useState('······');
+export function AdminLogin({ onEnter }: { onEnter?: (user: any) => void }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+
+    try {
+      const supabase = createClient();
+      
+      // Sign in with email and password
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
+        return;
+      }
+
+      if (!authData.user) {
+        setError('No user returned from authentication');
+        setLoading(false);
+        return;
+      }
+
+      // Check if user is admin in user_profiles
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('id, role, user_type, status, full_name, email')
+        .eq('id', authData.user.id)
+        .single();
+
+      if (profileError) {
+        // If no profile exists, deny access
+        await supabase.auth.signOut();
+        setError('Access denied. No admin profile found.');
+        setLoading(false);
+        return;
+      }
+
+      // Check if user has admin role or user_type
+      const isAdmin = profile.role === 'admin' || profile.user_type === 'admin' || profile.role === 'platform_admin';
+      
+      if (!isAdmin) {
+        await supabase.auth.signOut();
+        setError('Access denied. Admin privileges required.');
+        setLoading(false);
+        return;
+      }
+
+      // Success - call onEnter with user data
+      if (onEnter) {
+        onEnter({ 
+          ...authData.user, 
+          profile,
+          admin: true 
+        });
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred during authentication');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div style={{ minHeight:'100vh', background:'#0A0A0B', color:'#F3E6CE', display:'grid', placeItems:'center', fontFamily:'var(--mono)', position:'relative', overflow:'hidden' }}>
@@ -35,28 +104,64 @@ export function AdminLogin({ onEnter }: any) {
         <div style={{ fontFamily:'var(--serif)', fontSize:36, fontStyle:'italic', letterSpacing:'-0.02em', lineHeight:1.05, marginTop:14, color:'#F3E6CE' }}>Control room.</div>
         <div style={{ fontSize:11, letterSpacing:'.1em', color:'rgba(243,230,206,.55)', marginTop:8 }}>RESTRICTED — AUTHORIZED OPERATORS ONLY.</div>
 
-        <form onSubmit={e => { e.preventDefault(); onEnter && onEnter(); }} style={{ marginTop:28, display:'flex', flexDirection:'column', gap:14 }}>
-          <label>
-            <div style={{ fontSize:9, letterSpacing:'.22em', color:'rgba(243,230,206,.5)', marginBottom:6 }}>OPERATOR ID</div>
-            <input value={op} onChange={e => setOp(e.target.value)} style={adminInputStyle}/>
-          </label>
-          <label>
-            <div style={{ fontSize:9, letterSpacing:'.22em', color:'rgba(243,230,206,.5)', marginBottom:6 }}>2FA CODE</div>
-            <input value={code} onChange={e => setCode(e.target.value)} style={{ ...adminInputStyle, letterSpacing:'.5em' }}/>
-          </label>
-          <button type="submit" style={{
-            appearance:'none', cursor:'pointer',
-            background:'#B88858', color:'#0A0A0B',
-            border:0, padding:'14px 18px',
-            fontSize:11, fontWeight:700, letterSpacing:'.2em',
-            display:'flex', justifyContent:'space-between', alignItems:'center',
-            marginTop:10,
+        {error && (
+          <div style={{ 
+            marginTop: 20, 
+            padding: '12px 14px', 
+            background: 'rgba(220,38,38,.15)', 
+            border: '1px solid rgba(220,38,38,.4)',
+            color: '#FCA5A5',
+            fontSize: 12,
+            letterSpacing: '.04em'
           }}>
-            <span>AUTHENTICATE</span>
-            <span>▸</span>
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} style={{ marginTop:28, display:'flex', flexDirection:'column', gap:14 }}>
+          <label>
+            <div style={{ fontSize:9, letterSpacing:'.22em', color:'rgba(243,230,206,.5)', marginBottom:6 }}>EMAIL</div>
+            <input 
+              type="email"
+              value={email} 
+              onChange={e => setEmail(e.target.value)} 
+              style={adminInputStyle}
+              placeholder="admin@upnest.com"
+              required
+              disabled={loading}
+            />
+          </label>
+          <label>
+            <div style={{ fontSize:9, letterSpacing:'.22em', color:'rgba(243,230,206,.5)', marginBottom:6 }}>PASSWORD</div>
+            <input 
+              type="password"
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              style={{ ...adminInputStyle }}
+              placeholder="••••••••"
+              required
+              disabled={loading}
+            />
+          </label>
+          <button 
+            type="submit" 
+            disabled={loading}
+            style={{
+              appearance:'none', cursor: loading ? 'not-allowed' : 'pointer',
+              background: loading ? '#8B6A3F' : '#B88858', 
+              color:'#0A0A0B',
+              border:0, padding:'14px 18px',
+              fontSize:11, fontWeight:700, letterSpacing:'.2em',
+              display:'flex', justifyContent:'space-between', alignItems:'center',
+              marginTop:10,
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            <span>{loading ? 'AUTHENTICATING...' : 'AUTHENTICATE'}</span>
+            <span>{loading ? '◌' : '▸'}</span>
           </button>
           <div style={{ fontSize:9, letterSpacing:'.18em', color:'rgba(243,230,206,.35)', marginTop:8, display:'flex', justifyContent:'space-between' }}>
-            <span>SESSION EXPIRES IN 8H</span>
+            <span>ADMIN ACCESS ONLY</span>
             <span>v3.2.1</span>
           </div>
         </form>
