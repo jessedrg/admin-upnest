@@ -302,9 +302,10 @@ export function transformRecruitersForUI(recruiters: any[], applications: any[])
     }
   })
 
-  // Show all users from user_profiles - don't filter by user_type
-  // The admin might want to see all users, and recruiters may have various types
-  return recruiters.map(r => {
+  // Recruiters are users with role = 'user' (not 'admin')
+  const filteredRecruiters = recruiters.filter(r => r.role === 'user')
+
+  return filteredRecruiters.map(r => {
     // Map DB status to UI status: 'approved' -> 'active', 'rejected' -> 'revoked', 'pending' -> 'pending'
     const uiStatus = r.status === 'approved' ? 'active' : r.status === 'rejected' ? 'revoked' : r.status || 'pending'
     return {
@@ -312,7 +313,7 @@ export function transformRecruitersForUI(recruiters: any[], applications: any[])
       name: r.full_name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || r.email || 'Unknown',
       org: r.agencies?.name || r.agency_name || 'Independent',
       status: uiStatus,
-      tier: r.role || r.user_type || 'recruiter',
+      tier: r.user_type || 'recruiter',
       roles: 0,
       submitted: appCountByRecruiter[r.id] || 0,
       placed: 0,
