@@ -1,9 +1,23 @@
 'use client';
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useRoles, useApplications, transformRolesForUI } from '@/lib/hooks/useAdminData';
 import Icons from './Icons';
 import { KpiTile as AKpi, SectionTitle as ASec, Hairline as AHair, Chip as AChip } from './AdminViews';
 import { showToast } from './Toast';
+
+// Helper to get initials from company name
+function getInitials(name: string): string {
+  if (!name) return '?';
+  return name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+}
+
+// Color palette for company logos
+const LOGO_COLORS = ['#1B1A2E','#3C8B72','#A65535','#7B5CB4','#C44A4A','#D8A33C','#2D5A87','#8B4513'];
+function getLogoColor(name: string): string {
+  const hash = Math.abs((name || '').split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0));
+  return LOGO_COLORS[hash % LOGO_COLORS.length];
+}
 
 const apInput: React.CSSProperties = { width:'100%', padding:'10px 12px', border:'1px solid var(--hair)', background:'#fff', borderRadius:2, fontFamily:'var(--serif)', fontSize:14, outline:'none' };
 
@@ -245,6 +259,7 @@ function RoleSubmittalModal({ s, onClose, onApprove, onReject }: any) {
 }
 
 export function AdminRoles({ onCreateRole }: any) {
+  const router = useRouter();
   const { data: rolesData, isLoading: rolesLoading } = useRoles();
   const { data: applicationsData, isLoading: appsLoading } = useApplications();
   
@@ -260,6 +275,11 @@ export function AdminRoles({ onCreateRole }: any) {
   // Transform data from Supabase
   const roles = transformRolesForUI(rolesData || [], applicationsData || []);
   const isLoading = rolesLoading || appsLoading;
+  
+  // Navigate to role detail
+  const openRole = (role: any) => {
+    router.push(`/roles/${role.id}`);
+  };
 
   const patchRole = (id: string, patch: any) => setOverrides(o => ({ ...o, [id]: { ...o[id], ...patch } }));
   const getRole = (r: any) => ({ ...r, ...(overrides[r.id] || {}) });
@@ -295,10 +315,13 @@ export function AdminRoles({ onCreateRole }: any) {
   }).sort((a: any, b: any) => (priOrder[a.priority] ?? 9) - (priOrder[b.priority] ?? 9));
 
   const orgs = ['all', ...new Set(roles.map((r: any) => r.org as string).filter(Boolean))];
-  const cols = reorder ? '36px 80px 1.2fr 1fr 90px 100px 90px 90px' : '80px 1.5fr 1fr 100px 120px 90px 90px 40px';
+  // Updated columns: added space for logo next to NO.
+  const cols = reorder 
+    ? '36px 110px 1.2fr 1fr 80px 90px 80px 80px' 
+    : '110px 1.5fr minmax(120px, 1fr) 70px 100px 80px 80px 40px';
 
   return (
-    <div className="pad-mobile" style={{ padding:'40px 48px 80px', maxWidth:1800 }}>
+    <div className="pad-mobile roles-page" style={{ padding:'40px 48px 80px', maxWidth:1800 }}>
       <div className="masthead" style={{ marginBottom:28 }}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:24 }} className="stack-mobile">
           <div>
@@ -385,9 +408,9 @@ export function AdminRoles({ onCreateRole }: any) {
       </div>
 
       <div style={{ border:'1px solid var(--hair)', borderRadius:2, overflow:'hidden', background:'#fff' }}>
-        <div className="mono" style={{ display:'grid', gridTemplateColumns: cols, gap:16, padding:'12px 20px', borderBottom:'1px solid var(--hair)', background:'color-mix(in oklch, var(--paper) 50%, #fff)', fontSize:10, letterSpacing:'.16em', color:'var(--t-4)' }}>
+        <div className="mono roles-header" style={{ display:'grid', gridTemplateColumns: cols, gap:16, padding:'12px 20px', borderBottom:'1px solid var(--hair)', background:'color-mix(in oklch, var(--paper) 50%, #fff)', fontSize:10, letterSpacing:'.16em', color:'var(--t-4)' }}>
           {reorder && <span>↕</span>}
-          <span>NO.</span><span>ROLE</span><span>PIPELINE</span><span>AGE</span><span>RECRUITERS</span><span>STATUS</span>
+          <span>NO.</span><span>ROLE</span><span className="hide-mobile">PIPELINE</span><span className="hide-mobile">AGE</span><span className="hide-tablet">RECRUITERS</span><span>STATUS</span>
           <span>{reorder ? 'PRIORITY' : ''}</span>{!reorder && <span/>}
         </div>
         {filtered.map((r: any, i: number) => {
@@ -395,10 +418,12 @@ export function AdminRoles({ onCreateRole }: any) {
           const held = r.status === 'hold';
           const priLabel = r.priority === 'high' ? 'HIGH' : r.priority === 'med' ? 'MED' : 'LOW';
           const priTone  = r.priority === 'high' ? 'gold' : 'paper';
+          const logoColor = getLogoColor(r.org || '');
           return (
             <div key={r.id}
+              className="role-row"
               style={{ display:'grid', gridTemplateColumns: cols, gap:16, padding:'18px 20px', borderBottom: i < filtered.length - 1 ? '1px solid var(--hair)' : 'none', alignItems:'center', cursor: reorder ? 'default' : 'pointer', opacity: held ? .55 : 1 }}
-              onClick={() => !reorder && showToast(`Viewing role ${r.num}`)}
+              onClick={() => !reorder && openRole(r)}
               onMouseEnter={e => !reorder && (e.currentTarget.style.background = 'color-mix(in oklch, var(--ink) 2.5%, transparent)')}
               onMouseLeave={e => !reorder && (e.currentTarget.style.background = 'transparent')}>
               {reorder && (
@@ -409,17 +434,27 @@ export function AdminRoles({ onCreateRole }: any) {
                     disabled={i === filtered.length-1} style={{ appearance:'none', border:0, background: i===filtered.length-1 ? 'transparent' : 'var(--paper-2)', cursor: i===filtered.length-1 ? 'not-allowed' : 'pointer', width:22, height:16, borderRadius:3, fontSize:10, color:'var(--t-2)', opacity: i===filtered.length-1 ? .3 : 1 }}>▼</button>
                 </div>
               )}
-              <span className="mono" style={{ fontSize:10, letterSpacing:'.12em', color:'var(--t-4)' }}>{r.num}</span>
+              {/* Logo + Number */}
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                {r.companyLogo ? (
+                  <img src={r.companyLogo} alt={r.org} style={{ width:32, height:32, borderRadius:6, objectFit:'cover', flexShrink:0 }}/>
+                ) : (
+                  <div style={{ width:32, height:32, borderRadius:6, background: logoColor, color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--mono)', fontSize:11, fontWeight:600, flexShrink:0 }}>
+                    {getInitials(r.org)}
+                  </div>
+                )}
+                <span className="mono" style={{ fontSize:10, letterSpacing:'.12em', color:'var(--t-4)' }}>{r.num}</span>
+              </div>
               <div style={{ minWidth:0 }}>
                 <div style={{ display:'flex', alignItems:'baseline', gap:8, flexWrap:'wrap' }}>
-                  <span style={{ fontFamily:'var(--serif)', fontSize:19, fontStyle:'italic', letterSpacing:'-0.01em' }}>{r.title}</span>
+                  <span style={{ fontFamily:'var(--serif)', fontSize:18, fontStyle:'italic', letterSpacing:'-0.01em', wordBreak:'break-word' }}>{r.title}</span>
                   {r.confidential && <AChip tone="plum">CONF.</AChip>}
                   {r.focused && <AChip tone="gold">FOCUS</AChip>}
                   {held && <AChip tone="paper">HOLD</AChip>}
                 </div>
-                <div className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--t-4)', marginTop:3 }}>{r.org?.toUpperCase()} · {r.location?.toUpperCase()} · {r.salary}</div>
+                <div className="mono" style={{ fontSize:9, letterSpacing:'.12em', color:'var(--t-4)', marginTop:3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.org?.toUpperCase()} · {r.location?.toUpperCase()} · {r.salary}</div>
               </div>
-              <div style={{ display:'flex', gap:2, alignItems:'flex-end', height:28 }}>
+              <div className="hide-mobile" style={{ display:'flex', gap:2, alignItems:'flex-end', height:28 }}>
                 {Object.entries(r.pipeline || {}).map(([stage, n]: [string, any]) => {
                   const max = Math.max(...(Object.values(r.pipeline || {}) as number[]));
                   const h = max ? Math.max(3, ((n as number) / max) * 28) : 3;
@@ -427,11 +462,11 @@ export function AdminRoles({ onCreateRole }: any) {
                 })}
                 <span className="mono" style={{ fontSize:10, letterSpacing:'.12em', color:'var(--t-3)', marginLeft:8 }}>{totalPipe}</span>
               </div>
-              <div>
+              <div className="hide-mobile">
                 <div className="mono" style={{ fontSize:11, letterSpacing:'.1em', color: r.age >= 30 ? 'var(--err)' : 'var(--t-3)' }}>{r.age}d</div>
                 {r.tta !== '—' && <div className="mono" style={{ fontSize:9, letterSpacing:'.14em', color:'var(--t-4)' }}>TTA {r.tta}</div>}
               </div>
-              <div className="mono" style={{ fontSize:11, letterSpacing:'.1em', color:'var(--t-3)' }}>{r.recruiters} ASSIGNED</div>
+              <div className="mono hide-tablet" style={{ fontSize:11, letterSpacing:'.1em', color:'var(--t-3)' }}>{r.recruiters} ASSIGNED</div>
               <div>
                 {r.status === 'open'   && <AChip tone="ok">OPEN</AChip>}
                 {r.status === 'paused' && <AChip tone="paper">PAUSED</AChip>}

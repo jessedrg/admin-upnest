@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import ADMIN_DATA from '../../../_components/admin/AdminData';
+import { useRoles, useApplications, transformRolesForUI } from '@/lib/hooks/useAdminData';
 import { AdminRoleDetail } from '../../../_components/admin/AdminRoleDetail';
 import { CandidateDetailModal } from '../../../_components/admin/CandidateDetailModal';
 
@@ -10,23 +10,33 @@ export default function RoleDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = decodeURIComponent(String(params?.id || ''));
-  const [role, setRole] = useState<any>(null);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
 
-  useEffect(() => {
-    let r: any = null;
-    try {
-      const stash = sessionStorage.getItem('upnest:admin:selectedRole');
-      if (stash) {
-        const parsed = JSON.parse(stash);
-        if (parsed?.id === id) r = parsed;
-      }
-    } catch {}
-    if (!r) r = ADMIN_DATA.roles.find((x: any) => x.id === id) || ADMIN_DATA.roles[0] || null;
-    setRole(r);
-  }, [id]);
+  const { data: rolesData, isLoading: rolesLoading } = useRoles();
+  const { data: applicationsData, isLoading: appsLoading } = useApplications();
 
-  if (!role) return null;
+  const isLoading = rolesLoading || appsLoading;
+  const roles = transformRolesForUI(rolesData || [], applicationsData || []);
+  const role = roles.find((r: any) => r.id === id);
+
+  if (isLoading) {
+    return (
+      <div style={{ padding: '60px 48px', textAlign: 'center', color: 'var(--t-4)' }}>
+        <div className="mono" style={{ fontSize: 12, letterSpacing: '.2em' }}>LOADING ROLE...</div>
+      </div>
+    );
+  }
+
+  if (!role) {
+    return (
+      <div style={{ padding: '60px 48px', textAlign: 'center' }}>
+        <div className="mono" style={{ fontSize: 12, letterSpacing: '.2em', color: 'var(--t-4)', marginBottom: 16 }}>ROLE NOT FOUND</div>
+        <button onClick={() => router.push('/roles')} className="btn btn-ghost">
+          Back to Roles
+        </button>
+      </div>
+    );
+  }
 
   return (
     <>

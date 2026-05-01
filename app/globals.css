@@ -679,3 +679,73 @@ body {
   main { padding-bottom: 64px !important; }
   .route-bar { bottom: 6px !important; }
 }
+
+/* ================= ROLES PAGE RESPONSIVE ================= */
+
+/* Hide tablet-specific elements */
+@media (max-width: 1024px) {
+  .hide-tablet { display: none !important; }
+}
+
+/* Roles page responsive */
+@media (max-width: 1100px) {
+  .roles-page {
+    padding: 24px 20px 80px !important;
+  }
+  .roles-header,
+  .role-row {
+    grid-template-columns: 90px 1fr 80px 80px 60px !important;
+    gap: 12px !important;
+    font-size: 12px;
+  }
+  .roles-header .hide-mobile,
+  .role-row .hide-mobile {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .roles-page {
+    padding: 20px 16px 72px !important;
+  }
+  /* Switch to card layout on mobile */
+  .roles-header {
+    display: none !important;
+  }
+  .role-row {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    padding: 16px !important;
+    border-bottom: 1px solid var(--hair) !important;
+  }
+  .role-row > div:first-child {
+    /* Logo + number row */
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+  }
+  .role-row > div:nth-child(2) {
+    /* Title + org info */
+    padding-left: 0 !important;
+  }
+  /* Hide less important info on small screens */
+  .role-row .hide-mobile {
+    display: none !important;
+  }
+  /* Status chip stays visible */
+  .role-row > div:last-child {
+    display: flex !important;
+    justify-content: flex-end !important;
+  }
+  /* Make search full width */
+  .roles-page input[placeholder*="Search"] {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+  /* Stack filters */
+  .roles-page > div[style*="display:'flex'"][style*="gap:18"] {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+}
