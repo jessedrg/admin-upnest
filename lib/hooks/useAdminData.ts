@@ -50,12 +50,10 @@ async function fetchApplications() {
 
 async function fetchRecruiters() {
   const supabase = createClient()
+  // Simple query without joins - agencies relationship may not exist
   const { data, error } = await supabase
     .from('user_profiles')
-    .select(`
-      *,
-      agencies(name)
-    `)
+    .select('*')
     .order('created_at', { ascending: false })
   
   if (error) {
@@ -311,7 +309,7 @@ export function transformRecruitersForUI(recruiters: any[], applications: any[])
     return {
       id: r.id,
       name: r.full_name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || r.email || 'Unknown',
-      org: r.agencies?.name || r.agency_name || 'Independent',
+      org: r.agency_name || 'Independent',
       status: uiStatus,
       tier: r.user_type || 'recruiter',
       roles: 0,
