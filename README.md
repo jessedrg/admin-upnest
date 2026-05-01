@@ -1,36 +1,30 @@
-# @upnest/admin
+# upnest — Admin Console (Next.js)
 
-Next.js 14 (App Router) — Upnest internal operations console.
+Operator console for the upnest platform. Mirrors the original `upnest.html` Admin app pixel-for-pixel.
+
+## Run
 
 ```bash
-pnpm install
-pnpm dev   # http://localhost:3000
+npm install
+npm run dev
 ```
 
-## Routes
+Then open http://localhost:3001
 
-```
-app/
-├── login                    ← public (no signup)
-├── dashboard                ← global KPIs + activity
-├── roles                    ← all roles, all orgs
-├── roles/[id]               ← full pipeline + audit
-├── candidates               ← global candidate search
-├── organizations            ← companies + agencies
-├── recruiters               ← all recruiters, performance
-├── contracts                ← all contracts, billing
-├── stats                    ← platform-level analytics
-├── activity                 ← audit log
-├── settings                 ← internal config
-└── api/auth/[...nextauth]
-```
+## Architecture
 
-Same `lib/` layer as partners + clients — see `nextjs/README.md`.
+The original app was authored as inline-JSX components compiled in the browser via `@babel/standalone`. Each component attaches itself to `window` (e.g. `window.AdminApp`) and reads from other globals.
 
-## Access
+To preserve **pixel-perfect fidelity** with the original, we keep that runtime intact:
 
-The stub Credentials provider in `lib/auth.ts` accepts any email. To gate this app properly:
+- All `.jsx` source files live under `public/src/` and are served as static assets.
+- `app/page.tsx` loads React, ReactDOM and Babel UMD bundles, then loads each `.jsx` file with `type="text/babel"` so the browser compiles them — exactly like the original HTML.
+- `app/globals.css` is the original `styles.css`, untouched.
 
-1. Add a role check in NextAuth callbacks — only `role: "admin"` users.
-2. Replace the Credentials provider with your real IdP (Okta, Workos, etc.).
-3. Add a middleware that redirects non-admins.
+## Auth (demo)
+
+Auth state is kept in `localStorage` under `upnest:auth`. Click "→ Overview" in the bottom route bar (or the Login screen "Enter as admin" button) to sign in.
+
+## Mock data
+
+All data is generated in `public/src/AdminData.jsx` — no backend.
