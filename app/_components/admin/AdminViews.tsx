@@ -80,7 +80,59 @@ export function Mini({ value, max, accent = 'var(--ink)' }: any) {
   );
 }
 
-export const AdminShared = { KpiTile, SectionTitle, Hairline, Chip, HealthDot, Mini };
+// Skeleton loading components
+export function Skeleton({ width = '100%', height = 20, style = {} }: { width?: string | number, height?: number, style?: React.CSSProperties }) {
+  return (
+    <div 
+      className="skeleton-pulse"
+      style={{ 
+        width, 
+        height, 
+        background: 'linear-gradient(90deg, var(--hair) 25%, color-mix(in oklch, var(--hair) 60%, #fff) 50%, var(--hair) 75%)',
+        backgroundSize: '200% 100%',
+        animation: 'skeleton-shimmer 1.5s ease-in-out infinite',
+        borderRadius: 4,
+        ...style
+      }}
+    />
+  );
+}
+
+export function SkeletonRow({ cols = 5, height = 16 }: { cols?: number, height?: number }) {
+  return (
+    <div style={{ display: 'flex', gap: 16, padding: '16px 20px', borderBottom: '1px solid var(--hair)', alignItems: 'center' }}>
+      {Array.from({ length: cols }).map((_, i) => (
+        <Skeleton key={i} height={height} width={i === 0 ? '15%' : i === 1 ? '25%' : '12%'} />
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonTable({ rows = 5, cols = 6 }: { rows?: number, cols?: number }) {
+  return (
+    <div style={{ border: '1px solid var(--hair)', background: '#fff', borderRadius: 2 }}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <SkeletonRow key={i} cols={cols} />
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonStats({ count = 4 }: { count?: number }) {
+  return (
+    <div style={{ display: 'flex', border: '1px solid var(--hair)', borderRight: 0, marginBottom: 32 }}>
+      {Array.from({ length: count }).map((_, i) => (
+        <div key={i} style={{ padding: '18px 22px', borderRight: '1px solid var(--hair)', flex: 1, minWidth: 140 }}>
+          <Skeleton width="60%" height={10} style={{ marginBottom: 12 }} />
+          <Skeleton width="50%" height={34} style={{ marginBottom: 8 }} />
+          <Skeleton width="40%" height={10} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export const AdminShared = { KpiTile, SectionTitle, Hairline, Chip, HealthDot, Mini, Skeleton, SkeletonRow, SkeletonTable, SkeletonStats };
 
 /* ========================= Overview ========================= */
 

@@ -143,29 +143,40 @@ export function useAdminData() {
 // Transform Supabase data to match the expected UI format
 
 export function transformOrgsForUI(orgs: any[], agencies: any[]) {
+  // Map client_organizations status to health: approved -> healthy, pending -> at-risk, rejected/suspended -> unhealthy
+  const statusToHealth = (status: string) => {
+    if (status === 'approved') return 'healthy' as const
+    if (status === 'pending') return 'at-risk' as const
+    return 'unhealthy' as const
+  }
+
   const transformed = [
     // Transform client organizations
     ...orgs.map(org => ({
       id: org.id,
       name: org.name || 'Unknown',
-      type: 'company' as const,
-      tier: org.account_type || 'Growth',
-      logo: (org.name || 'U')[0].toUpperCase(),
+      type: org.account_type === 'agency' ? 'agency' as const : 'company' as const,
+      tier: org.account_type || 'company',
+      logo: org.logo_url || (org.name || 'U')[0].toUpperCase(),
+      logoUrl: org.logo_url,
       joined: formatDate(org.created_at),
       mrr: 0, // Not tracked in current schema
-      health: 'healthy' as const,
+      health: statusToHealth(org.status),
+      status: org.status, // Keep original status: pending, approved, rejected, suspended
       seats: 0,
       roles: 0, // Will be calculated
       candidates: 0,
       primary: org.contact_name || '',
       domain: org.website?.replace(/https?:\/\//, '') || '',
+      website: org.website,
       industry: org.industry,
       companySize: org.company_size,
       description: org.description,
       contactEmail: org.contact_email,
       contactPhone: org.contact_phone,
+      agencyCommission: org.agency_commission,
     })),
-    // Transform agencies
+    // Transform agencies (legacy support)
     ...agencies.map(agency => ({
       id: agency.id,
       name: agency.name || 'Unknown',
@@ -175,6 +186,7 @@ export function transformOrgsForUI(orgs: any[], agencies: any[]) {
       joined: formatDate(agency.created_at),
       mrr: 0,
       health: agency.is_active ? 'healthy' : 'dormant',
+      status: agency.is_active ? 'approved' : 'suspended',
       seats: 0,
       roles: 0,
       candidates: 0,

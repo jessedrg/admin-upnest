@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { useOrganizations, useAgencies, useRoles, useApplications, transformOrgsForUI, transformRolesForUI, transformCandidatesForUI } from '@/lib/hooks/useAdminData';
-import { KpiTile as BKpi, SectionTitle as BSec, Hairline as BHair, Chip as BChip, HealthDot as BHD } from './AdminViews';
+import { KpiTile as BKpi, SectionTitle as BSec, Hairline as BHair, Chip as BChip, HealthDot as BHD, SkeletonStats, SkeletonTable } from './AdminViews';
 import { showToast } from './Toast';
 
 function synthesizeRoleDetail(title: string, p: any) {
@@ -267,21 +267,26 @@ export function AdminOrgs() {
     setApproving(null);
   };
 
+  // Separate pending from approved
+  const pendingFromDB = allOrgs.filter((o: any) => o.status === 'pending');
+  const approvedOrgs = allOrgs.filter((o: any) => o.status !== 'pending');
+
   const tabs = [
-    { k:'all',     l:'All',       n: allOrgs.length },
-    { k:'company', l:'Companies', n: allOrgs.filter((o: any) => o.type === 'company').length },
-    { k:'agency',  l:'Agencies',  n: allOrgs.filter((o: any) => o.type === 'agency').length },
-    { k:'at-risk', l:'At risk',   n: allOrgs.filter((o: any) => o.health === 'at-risk').length },
-    { k:'dormant', l:'Dormant',   n: allOrgs.filter((o: any) => o.health === 'dormant').length },
+    { k:'all',     l:'All',       n: approvedOrgs.length },
+    { k:'pending', l:'Pending',   n: pendingFromDB.length, highlight: pendingFromDB.length > 0 },
+    { k:'company', l:'Companies', n: approvedOrgs.filter((o: any) => o.type === 'company').length },
+    { k:'agency',  l:'Agencies',  n: approvedOrgs.filter((o: any) => o.type === 'agency').length },
+    { k:'suspended', l:'Suspended', n: allOrgs.filter((o: any) => o.status === 'suspended' || o.status === 'rejected').length },
   ];
 
-  const orgs = allOrgs.filter((o: any) => {
-    if (tab === 'company' && o.type !== 'company') return false;
-    if (tab === 'agency'  && o.type !== 'agency')  return false;
-    if (tab === 'at-risk' && o.health !== 'at-risk') return false;
-    if (tab === 'dormant' && o.health !== 'dormant') return false;
-    return true;
-  });
+  const orgs = tab === 'pending' 
+    ? pendingFromDB
+    : approvedOrgs.filter((o: any) => {
+        if (tab === 'company' && o.type !== 'company') return false;
+        if (tab === 'agency'  && o.type !== 'agency')  return false;
+        if (tab === 'suspended' && o.status !== 'suspended' && o.status !== 'rejected') return false;
+        return true;
+      });
 
   return (
     <div className="pad-mobile" style={{ padding:'40px 48px 80px', maxWidth:1800 }}>
@@ -292,49 +297,31 @@ export function AdminOrgs() {
         </h1>
       </div>
 
-      {pendingOrgs.length > 0 && (
-        <div style={{ marginBottom:40 }}>
-          <BSec num="§ 00" title="Awaiting approval" sub={`${pendingOrgs.length} PENDING`}/>
-          <BHair/>
-          <div style={{ border:'1px solid var(--plum-500)', borderRadius:2, background:'var(--plum-50)', overflow:'hidden' }}>
-            {pendingOrgs.map((p: any, i: number) => (
-              <div key={p.id} onClick={() => setApproving(p)}
-                style={{ display:'grid', gridTemplateColumns:'56px 1fr 1fr 140px 180px', gap:18, padding:'18px 22px', borderBottom: i < pendingOrgs.length - 1 ? '1px solid rgba(123,92,180,.2)' : 'none', alignItems:'center', cursor:'pointer' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(123,92,180,.08)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                <div style={{ width:44, height:44, borderRadius:8, border:'1px solid rgba(123,92,180,.3)', background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--serif)', fontStyle:'italic', fontSize:22 }}>{p.logo}</div>
-                <div style={{ minWidth:0 }}>
-                  <div style={{ display:'flex', gap:8, alignItems:'baseline', flexWrap:'wrap' }}>
-                    <span style={{ fontFamily:'var(--serif)', fontSize:22, fontStyle:'italic', letterSpacing:'-0.02em' }}>{p.name}</span>
-                    <BChip tone="paper">{p.type?.toUpperCase()}</BChip>
-                  </div>
-                  <div className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--plum-700)', marginTop:4 }}>{p.domain?.toUpperCase()} · {p.size} · {p.hq?.toUpperCase()}</div>
-                </div>
-                <div>
-                  <div style={{ fontFamily:'var(--serif)', fontSize:15, fontStyle:'italic' }}>{p.primary}</div>
-                  <div className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--t-4)', marginTop:3 }}>{p.primaryTitle?.toUpperCase()}</div>
-                </div>
-                <div className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--t-4)' }}>
-                  APPLIED {p.appliedAt?.toUpperCase()}
-                </div>
-                <div style={{ display:'flex', gap:6, justifyContent:'flex-end' }} onClick={e => e.stopPropagation()}>
-                  <button onClick={() => rejectPending(p)} className="btn btn-ghost" style={{ padding:'8px 12px', fontSize:11 }}>Reject</button>
-                  <button onClick={() => setApproving(p)} className="btn btn-primary" style={{ padding:'8px 12px', fontSize:11 }}>Review & approve</button>
-                </div>
+      {isLoading ? (
+        <>
+          <SkeletonStats count={4} />
+          <SkeletonTable rows={6} cols={5} />
+        </>
+      ) : (
+        <>
+          {pendingFromDB.length > 0 && tab !== 'pending' && (
+            <div style={{ marginBottom:24, padding:'16px 20px', background:'var(--plum-50)', border:'1px solid var(--plum-300)', borderRadius:8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div>
+                <div className="serif" style={{ fontSize:18, fontStyle:'italic' }}>{pendingFromDB.length} organization{pendingFromDB.length > 1 ? 's' : ''} awaiting approval</div>
+                <div className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--plum-700)', marginTop:4 }}>Review and approve to give them access to the platform</div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+              <button onClick={() => setTab('pending')} className="btn btn-primary" style={{ padding:'10px 16px' }}>Review pending</button>
+            </div>
+          )}
 
-      <BSec num="§ 01" title="Active organizations" sub={`${d.orgs.length} TOTAL`}/>
+          <BSec num="§ 01" title={tab === 'pending' ? 'Pending approval' : 'Organizations'} sub={`${orgs.length} ${tab.toUpperCase()}`}/>
       <BHair/>
       <div style={{ borderBottom:'1px solid var(--hair)', display:'flex', gap:28, alignItems:'flex-end', marginBottom:24, flexWrap:'wrap' }}>
         {tabs.map(t => {
           const A = tab === t.k;
           return (
             <button key={t.k} onClick={() => setTab(t.k)} style={{ appearance:'none', border:0, background:'transparent', cursor:'pointer', padding:'10px 0', position:'relative', color: A ? 'var(--ink)' : 'var(--t-3)', fontFamily:'var(--serif)', fontSize:18, fontStyle: A ? 'italic' : 'normal', letterSpacing:'-0.01em' }}>
-              {t.l}<span className="mono" style={{ marginLeft:8, fontSize:10, color:'var(--t-4)', letterSpacing:'.14em' }}>{t.n}</span>
+              {t.l}<span className="mono" style={{ marginLeft:8, fontSize:10, color: (t as any).highlight ? 'var(--err)' : 'var(--t-4)', letterSpacing:'.14em' }}>{t.n}</span>
               {A && <span style={{ position:'absolute', left:0, right:0, bottom:-1, height:2, background:'var(--ink)' }}/>}
             </button>
           );
@@ -369,6 +356,9 @@ export function AdminOrgs() {
           </button>
         ))}
       </div>
+
+      </>
+      )}
 
       {open && <OrgDrawer org={open} onClose={() => setOpen(null)} roles={roles} candidates={candidates}/>}
       {approving && <ApproveClientModal org={approving} onClose={() => setApproving(null)} onApprove={approvePending} onReject={() => rejectPending(approving)}/>}

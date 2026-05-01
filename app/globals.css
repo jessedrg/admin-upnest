@@ -749,3 +749,55 @@ body {
     gap: 12px !important;
   }
 }
+
+/* ================= SKELETON ANIMATION ================= */
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ================= RECRUITERS PAGE RESPONSIVE ================= */
+.recruiters-page {
+  padding: 40px 48px 80px;
+  max-width: 1800px;
+}
+
+.recruiters-table {
+  overflow-x: auto;
+}
+
+.recruiters-row {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 80px 80px 100px 100px 120px;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--hair);
+  align-items: center;
+  min-width: 800px;
+}
+
+.recruiters-header {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 80px 80px 100px 100px 120px;
+  gap: 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--hair);
+  background: color-mix(in oklch, var(--paper) 50%, #fff);
+  min-width: 800px;
+}
+
+@media (max-width: 1100px) {
+  .recruiters-page {
+    padding: 24px 20px 80px;
+  }
+}
+
+@media (max-width: 768px) {
+  .recruiters-page {
+    padding: 20px 16px 72px;
+  }
+  .recruiters-table {
+    margin: 0 -16px;
+    padding: 0 16px;
+  }
+}
