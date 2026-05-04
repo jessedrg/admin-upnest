@@ -1,9 +1,10 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useApplications, useRecruiters, transformCandidatesForUI, PIPELINE_STAGES } from '@/lib/hooks/useAdminData';
-import { Chip as AChip, Skeleton, SkeletonTable } from './AdminViews';
+import { Chip as AChip, Skeleton } from './AdminViews';
 import { showToast } from './Toast';
 import { useCandidateStore } from './CandidateStore';
+import { createClient } from '@/lib/supabase/client';
 
 // Skeleton for the role detail page
 function RoleDetailSkeleton() {
@@ -100,10 +101,12 @@ function KpiTile({ label, value, sub, trend }: { label: string; value: string | 
   );
 }
 
-// Kanban Card component
-function KanbanCard({ c, onClick }: { c: any; onClick?: () => void }) {
+// Kanban Card component with drag support
+function KanbanCard({ c, onClick, onDragStart }: { c: any; onClick?: () => void; onDragStart?: (e: React.DragEvent) => void }) {
   return (
     <div 
+      draggable
+      onDragStart={onDragStart}
       onClick={onClick}
       style={{ 
         border: '1px solid var(--hair)', 
@@ -111,8 +114,8 @@ function KanbanCard({ c, onClick }: { c: any; onClick?: () => void }) {
         padding: '14px 16px', 
         background: '#fff', 
         marginBottom: 8,
-        cursor: 'pointer',
-        transition: 'box-shadow .15s, border-color .15s'
+        cursor: 'grab',
+        transition: 'box-shadow .15s, border-color .15s, opacity .15s'
       }}
       onMouseEnter={e => {
         e.currentTarget.style.borderColor = 'var(--hair-strong)';
@@ -142,8 +145,29 @@ function KanbanCard({ c, onClick }: { c: any; onClick?: () => void }) {
   );
 }
 
-// Pipeline Kanban Board
-function PipelineBoard({ candidates, onCandidate }: { candidates: any[]; onCandidate?: (c: any) => void }) {
+// Map UI stage names back to DB interview_status values
+function stageToInterviewStatus(stage: string): string {
+  const mapping: Record<string, string> = {
+    'New': 'new',
+    'Screening': 'screening',
+    'Phone': 'phone_interview',
+    'Sent to Client': 'sent_to_client',
+    'Final Interview': 'final_interview',
+    'Hired': 'hired',
+    'Rejected': 'rejected',
+  };
+  return mapping[stage] || 'new';
+}
+
+// Pipeline Kanban Board with drag & drop
+function PipelineBoard({ candidates, onCandidate, onStageChange }: { 
+  candidates: any[]; 
+  onCandidate?: (c: any) => void;
+  onStageChange?: (candidateId: string, newStage: string) => void;
+}) {
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+  
   // Exclude Rejected from kanban view
   const visibleStages = PIPELINE_STAGES.filter(s => s !== 'Rejected');
   
@@ -158,13 +182,50 @@ function PipelineBoard({ candidates, onCandidate }: { candidates: any[]; onCandi
     return grouped;
   }, [candidates]);
 
+  const handleDragStart = (e: React.DragEvent, candidateId: string) => {
+    setDraggedId(candidateId);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', candidateId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, stage: string) => {
+    e.preventDefault();
+    setDropTarget(stage);
+  };
+
+  const handleDragLeave = () => {
+    setDropTarget(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, stage: string) => {
+    e.preventDefault();
+    const candidateId = e.dataTransfer.getData('text/plain');
+    if (candidateId && onStageChange) {
+      onStageChange(candidateId, stage);
+    }
+    setDraggedId(null);
+    setDropTarget(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    setDropTarget(null);
+  };
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleStages.length}, minmax(180px, 1fr))`, gap: 16, overflowX: 'auto', paddingBottom: 20 }}>
       {visibleStages.map(stage => {
         const isClientVisible = ['Sent to Client', 'Final Interview', 'Hired'].includes(stage);
         const stageCount = byStage[stage]?.length || 0;
+        const isDropping = dropTarget === stage;
         return (
-          <div key={stage} style={{ minWidth: 180 }}>
+          <div 
+            key={stage} 
+            style={{ minWidth: 180 }}
+            onDragOver={(e) => handleDragOver(e, stage)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, stage)}
+          >
             <div className="serif" style={{ 
               fontSize: 16, 
               fontStyle: 'italic', 
@@ -173,12 +234,24 @@ function PipelineBoard({ candidates, onCandidate }: { candidates: any[]; onCandi
             }}>
               {stage}
             </div>
-            <div style={{ minHeight: 100 }}>
+            <div style={{ 
+              minHeight: 100, 
+              padding: 4,
+              borderRadius: 8,
+              border: isDropping ? '2px dashed var(--plum-400)' : '2px dashed transparent',
+              background: isDropping ? 'var(--plum-50)' : 'transparent',
+              transition: 'all .15s ease'
+            }}>
               {stageCount === 0 ? (
                 <div className="mono" style={{ fontSize: 10, color: 'var(--t-5)', textAlign: 'center', padding: 20 }}>—</div>
               ) : (
                 byStage[stage].map(c => (
-                  <KanbanCard key={c.id} c={c} onClick={() => onCandidate?.(c)} />
+                  <KanbanCard 
+                    key={c.id} 
+                    c={c} 
+                    onClick={() => onCandidate?.(c)}
+                    onDragStart={(e) => handleDragStart(e, c.id)}
+                  />
                 ))
               )}
             </div>
@@ -190,7 +263,7 @@ function PipelineBoard({ candidates, onCandidate }: { candidates: any[]; onCandi
 }
 
 export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
-  const { data: applicationsData, isLoading: appsLoading } = useApplications();
+  const { data: applicationsData, isLoading: appsLoading, mutate: mutateApps } = useApplications();
   const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
   
   const recruitersMap = useMemo(() => {
@@ -210,6 +283,37 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
   const [tab, setTab] = useState<'pipeline'|'candidates'|'activity'|'comments'|'emails'|'brief'>('pipeline');
   const { setStage: storeSetStage, STAGES } = useCandidateStore();
   const [stageMenuFor, setStageMenuFor] = useState<string | null>(null);
+
+  // Handler to update candidate stage in Supabase
+  const handleStageChange = useCallback(async (candidateId: string, newStage: string) => {
+    const supabase = createClient();
+    const newInterviewStatus = stageToInterviewStatus(newStage);
+    
+    // Optimistic update
+    const candidate = allCandidates.find((c: any) => c.id === candidateId);
+    if (candidate) {
+      showToast(`Moving ${candidate.name} to ${newStage}...`);
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ 
+          interview_status: newInterviewStatus,
+          status_entered_at: new Date().toISOString()
+        })
+        .eq('id', candidateId);
+      
+      if (error) throw error;
+      
+      // Refresh data
+      mutateApps();
+      showToast(`Moved to ${newStage}`);
+    } catch (err) {
+      console.error('[v0] Error updating stage:', err);
+      showToast('Failed to update stage');
+    }
+  }, [allCandidates, mutateApps]);
 
   const roleCandidates = allCandidates.filter((c: any) => c.roleId === r?.id || c.role === r?.title);
   
@@ -266,11 +370,8 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
             <div className="mono" style={{ fontSize:10, letterSpacing:'.22em', color:'var(--t-4)' }}>{r.num} · {r.org?.toUpperCase()}</div>
             <h1 className="serif" style={{ fontSize:'clamp(36px, 4.5vw, 52px)', fontStyle:'italic', lineHeight:1.02, letterSpacing:'-0.03em', marginTop:8 }}>{r.title}</h1>
           </div>
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'flex-start' }}>
-            {r.status === 'open'   && <AChip tone="ok">OPEN</AChip>}
-            {r.status === 'paused' && <AChip tone="paper">PAUSED</AChip>}
-            {r.focused && <AChip tone="gold">FOCUS</AChip>}
-            <button onClick={() => showToast('Adding comment...')} className="btn btn-ghost" style={{ padding:'8px 14px', fontSize:11 }}>Comment</button>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+            <button className="btn btn-ghost" style={{ padding:'8px 14px', fontSize:11 }}>Edit role</button>
           </div>
         </div>
         {/* Tags row */}
@@ -313,7 +414,7 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
 
       {/* Pipeline tab - Kanban Board */}
       {tab === 'pipeline' && (
-        <PipelineBoard candidates={roleCandidates} onCandidate={onCandidate} />
+        <PipelineBoard candidates={roleCandidates} onCandidate={onCandidate} onStageChange={handleStageChange} />
       )}
 
       {/* Candidates tab - Table View */}
@@ -360,7 +461,7 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
                           const isActive = s === c.stage;
                           const isVisible = ['Sent to Client', 'Final Interview', 'Hired'].includes(s);
                           return (
-                            <button key={s} onClick={() => { storeSetStage(c.id, s); setStageMenuFor(null); }} style={{ appearance:'none', border:0, background: isActive ? 'var(--paper-2)' : 'transparent', width:'100%', textAlign:'left', cursor:'pointer', padding:'8px 14px', display:'flex', alignItems:'center', gap:10, fontFamily:'var(--serif)', fontSize:14, color: isActive ? 'var(--t-1)' : 'var(--t-2)', fontStyle: isActive ? 'italic' : 'normal' }}
+                            <button key={s} onClick={() => { handleStageChange(c.id, s); setStageMenuFor(null); }} style={{ appearance:'none', border:0, background: isActive ? 'var(--paper-2)' : 'transparent', width:'100%', textAlign:'left', cursor:'pointer', padding:'8px 14px', display:'flex', alignItems:'center', gap:10, fontFamily:'var(--serif)', fontSize:14, color: isActive ? 'var(--t-1)' : 'var(--t-2)', fontStyle: isActive ? 'italic' : 'normal' }}
                               onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--paper-2)'; }}
                               onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
                               <span style={{ width:6, height:6, borderRadius:999, background: isActive ? 'var(--ink)' : isVisible ? 'var(--plum-600)' : 'var(--hair-strong)' }}/>
@@ -377,7 +478,7 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
                 <span className="mono" style={{ fontSize:10, letterSpacing:'.12em', color:'var(--t-4)' }}>{c.submitted?.toUpperCase()}</span>
                 <div>
                   {!visible && c.stage !== 'Rejected' ? (
-                    <button onClick={() => storeSetStage(c.id, 'Sent to Client')} style={{ appearance:'none', cursor:'pointer', border:'1px solid var(--plum-700)', background:'var(--plum-700)', color:'var(--paper)', padding:'5px 10px', borderRadius:999, fontFamily:'var(--serif)', fontStyle:'italic', fontSize:11, whiteSpace:'nowrap' }}>→ Send</button>
+                    <button onClick={() => handleStageChange(c.id, 'Sent to Client')} style={{ appearance:'none', cursor:'pointer', border:'1px solid var(--plum-700)', background:'var(--plum-700)', color:'var(--paper)', padding:'5px 10px', borderRadius:999, fontFamily:'var(--serif)', fontStyle:'italic', fontSize:11, whiteSpace:'nowrap' }}>→ Send</button>
                   ) : <span className="mono" style={{ fontSize:9, color:'var(--t-4)' }}>—</span>}
                 </div>
                 <button onClick={() => onCandidate && onCandidate(c)} style={{ all:'unset', cursor:'pointer', fontFamily:'var(--mono)', fontSize:12, color:'var(--t-4)', textAlign:'right' }}>→</button>
