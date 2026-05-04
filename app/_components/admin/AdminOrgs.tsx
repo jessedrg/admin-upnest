@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useMemo } from 'react';
-import { useOrganizations, useAgencies, useRoles, useApplications, useRecruiters, transformOrgsForUI, transformRolesForUI, transformCandidatesForUI } from '@/lib/hooks/useAdminData';
+import { useOrganizations, useAgencies, useRoles, useApplications, useRecruiters, useFocusedRoles, transformOrgsForUI, transformRolesForUI, transformCandidatesForUI } from '@/lib/hooks/useAdminData';
 import { KpiTile as BKpi, SectionTitle as BSec, Hairline as BHair, Chip as BChip, HealthDot as BHD, SkeletonStats, SkeletonTable } from './AdminViews';
 import { showToast } from './Toast';
 
@@ -305,6 +305,7 @@ export function AdminOrgs() {
   const { data: rolesData, isLoading: rolesLoading } = useRoles();
   const { data: applicationsData, isLoading: appsLoading } = useApplications();
   const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
+  const { data: focusedRolesData, isLoading: focusedLoading } = useFocusedRoles();
   
   const [tab, setTab] = useState('all');
   const [open, setOpen] = useState<any>(null);
@@ -320,9 +321,9 @@ export function AdminOrgs() {
 
   // Transform data from Supabase
   const allOrgs = transformOrgsForUI(orgsData || [], agenciesData || []);
-  const roles = transformRolesForUI(rolesData || [], applicationsData || []);
+  const roles = transformRolesForUI(rolesData || [], applicationsData || [], focusedRolesData || []);
   const candidates = transformCandidatesForUI(applicationsData || [], recruitersMap);
-  const isLoading = orgsLoading || agenciesLoading || rolesLoading || appsLoading || recruitersLoading;
+  const isLoading = orgsLoading || agenciesLoading || rolesLoading || appsLoading || recruitersLoading || focusedLoading;
 
   // Handle approve/reject - TODO: implement Supabase update
   const handleApprove = async (org: any) => {

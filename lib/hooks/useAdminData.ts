@@ -89,6 +89,19 @@ async function fetchApplications() {
   return data || []
 }
 
+async function fetchFocusedRoles() {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('focused_roles')
+    .select('*, user_profiles(id, full_name, email, profile_picture_url)')
+    .order('focused_at', { ascending: false })
+  if (error) {
+    console.error('[v0] Error fetching focused_roles:', error)
+    return []
+  }
+  return data || []
+}
+
 async function fetchRecruiters() {
   const supabase = createClient()
   // Simple query without joins - agencies relationship may not exist
@@ -161,6 +174,13 @@ export function useApplications() {
 
 export function useRecruiters() {
   return useSWR('recruiters', fetchRecruiters, {
+    revalidateOnFocus: false,
+    dedupingInterval: 30000
+  })
+}
+
+export function useFocusedRoles() {
+  return useSWR('focused_roles', fetchFocusedRoles, {
     revalidateOnFocus: false,
     dedupingInterval: 30000
   })
@@ -241,7 +261,7 @@ export function transformOrgsForUI(orgs: any[], agencies: any[]) {
   return transformed
 }
 
-export function transformRolesForUI(roles: any[], applications: any[]) {
+export function transformRolesForUI(roles: any[], applications: any[], focusedRoles?: any[]) {
   // Count applications per role, grouped by UI stage using interview_status (the real pipeline stage)
   const appCountByRole: Record<string, number> = {}
   const appsByStage: Record<string, Record<string, number>> = {}
@@ -262,6 +282,25 @@ export function transformRolesForUI(roles: any[], applications: any[]) {
     }
   })
 
+  // Group focused recruiters by role_id
+  const focusedByRole: Record<string, { all: any[]; last24h: any[] }> = {}
+  const now = new Date()
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+  
+  if (focusedRoles) {
+    focusedRoles.forEach((fr: any) => {
+      if (!focusedByRole[fr.role_id]) {
+        focusedByRole[fr.role_id] = { all: [], last24h: [] }
+      }
+      focusedByRole[fr.role_id].all.push(fr)
+      // Check if focused in last 24h
+      const focusedAt = new Date(fr.focused_at || fr.created_at)
+      if (focusedAt >= oneDayAgo) {
+        focusedByRole[fr.role_id].last24h.push(fr)
+      }
+    })
+  }
+
   return roles.map((role, index) => {
     // Get pipeline with all stages initialized - matches PIPELINE_STAGES
     const pipeline = appsByStage[role.id] || {
@@ -270,6 +309,17 @@ export function transformRolesForUI(roles: any[], applications: any[]) {
     }
     // Map DB status to UI status: 'active' -> 'open', 'closed' -> 'paused'
     const uiStatus = role.status === 'active' ? 'open' : role.status === 'closed' ? 'paused' : role.status || 'open'
+    
+    // Get focused recruiters for this role
+    const focusedData = focusedByRole[role.id] || { all: [], last24h: [] }
+    const focusedRecruiters = focusedData.all.map((fr: any) => ({
+      id: fr.user_id,
+      name: fr.user_profiles?.full_name || fr.user_profiles?.email?.split('@')[0] || 'Unknown',
+      email: fr.user_profiles?.email,
+      avatar: fr.user_profiles?.profile_picture_url,
+      focusedAt: fr.focused_at || fr.created_at,
+    }))
+    
     return {
       id: role.id,
       num: `R-${String(index + 1).padStart(5, '0')}`,
@@ -282,7 +332,9 @@ export function transformRolesForUI(roles: any[], applications: any[]) {
       opened: formatTimeAgo(role.created_at),
       focused: role.focus_this_week || false,
       confidential: role.is_hidden || false,
-      recruiters: 0, // Would need recruiter_role_assignments
+      recruiters: focusedRecruiters.length, // Number of recruiters focused on this role
+      recruitersLast24h: focusedData.last24h.length, // Focused in last 24h
+      focusedRecruiters, // Array of recruiter details
       candidates: appCountByRole[role.id] || 0,
       pipeline,
       age: daysSince(role.created_at),

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useOrganizations, useAgencies, useRoles, useApplications, useRecruiters, transformOrgsForUI, transformRolesForUI, transformCandidatesForUI, transformRecruitersForUI } from '@/lib/hooks/useAdminData';
+import { useOrganizations, useAgencies, useRoles, useApplications, useRecruiters, useFocusedRoles, transformOrgsForUI, transformRolesForUI, transformCandidatesForUI, transformRecruitersForUI } from '@/lib/hooks/useAdminData';
 
 /* ========================= shared pieces ========================= */
 
@@ -144,6 +144,7 @@ export function AdminOverview({ onNavigate }: any) {
   const { data: rolesData, isLoading: rolesLoading } = useRoles();
   const { data: applicationsData, isLoading: appsLoading } = useApplications();
   const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
+  const { data: focusedRolesData, isLoading: focusedLoading } = useFocusedRoles();
 
   // Transform data
   const recruitersMap = React.useMemo(() => {
@@ -153,10 +154,10 @@ export function AdminOverview({ onNavigate }: any) {
   }, [recruitersData]);
   
   const orgs = transformOrgsForUI(orgsData || [], agenciesData || []);
-  const roles = transformRolesForUI(rolesData || [], applicationsData || []);
+  const roles = transformRolesForUI(rolesData || [], applicationsData || [], focusedRolesData || []);
   const candidates = transformCandidatesForUI(applicationsData || [], recruitersMap);
   const recruiters = transformRecruitersForUI(recruitersData || [], applicationsData || []);
-  const isLoading = orgsLoading || agenciesLoading || rolesLoading || appsLoading || recruitersLoading;
+  const isLoading = orgsLoading || agenciesLoading || rolesLoading || appsLoading || recruitersLoading || focusedLoading;
 
   const totalMrr = orgs.reduce((s: number, o: any) => s + (o.mrr || 0), 0);
   const totalCands = candidates.length;

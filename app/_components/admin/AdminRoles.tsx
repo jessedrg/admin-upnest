@@ -1,7 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useRoles, useApplications, transformRolesForUI } from '@/lib/hooks/useAdminData';
+import { useRoles, useApplications, useFocusedRoles, transformRolesForUI } from '@/lib/hooks/useAdminData';
 import Icons from './Icons';
 import { KpiTile as AKpi, SectionTitle as ASec, Hairline as AHair, Chip as AChip, SkeletonStats, SkeletonTable } from './AdminViews';
 import { showToast } from './Toast';
@@ -262,6 +262,7 @@ export function AdminRoles({ onCreateRole }: any) {
   const router = useRouter();
   const { data: rolesData, isLoading: rolesLoading } = useRoles();
   const { data: applicationsData, isLoading: appsLoading } = useApplications();
+  const { data: focusedRolesData, isLoading: focusedLoading } = useFocusedRoles();
   
   const [tab, setTab] = useState('all');
   const [org, setOrg] = useState('all');
@@ -272,9 +273,9 @@ export function AdminRoles({ onCreateRole }: any) {
   const [submittals, setSubmittals] = useState<any[]>([]);
   const [submittalView, setSubmittalView] = useState<any>(null);
 
-  // Transform data from Supabase
-  const roles = transformRolesForUI(rolesData || [], applicationsData || []);
-  const isLoading = rolesLoading || appsLoading;
+  // Transform data from Supabase - now includes focused recruiters
+  const roles = transformRolesForUI(rolesData || [], applicationsData || [], focusedRolesData || []);
+  const isLoading = rolesLoading || appsLoading || focusedLoading;
   
   // Navigate to role detail
   const openRole = (role: any) => {
@@ -473,7 +474,42 @@ export function AdminRoles({ onCreateRole }: any) {
                 <div className="mono" style={{ fontSize:11, letterSpacing:'.1em', color: r.age >= 30 ? 'var(--err)' : 'var(--t-3)' }}>{r.age}d</div>
                 {r.tta !== '—' && <div className="mono" style={{ fontSize:9, letterSpacing:'.14em', color:'var(--t-4)' }}>TTA {r.tta}</div>}
               </div>
-              <div className="mono hide-tablet" style={{ fontSize:11, letterSpacing:'.1em', color:'var(--t-3)' }}>{r.recruiters} ASSIGNED</div>
+              <div className="hide-tablet" style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                <div className="mono" style={{ fontSize:11, letterSpacing:'.1em', color: r.recruiters > 0 ? 'var(--t-2)' : 'var(--t-4)' }}>
+                  {r.recruiters} FOCUSED
+                </div>
+                {r.recruitersLast24h > 0 && (
+                  <div className="mono" style={{ fontSize:9, letterSpacing:'.1em', color:'var(--ok)' }}>
+                    +{r.recruitersLast24h} last 24h
+                  </div>
+                )}
+                {r.focusedRecruiters?.length > 0 && (
+                  <div style={{ display:'flex', marginTop:4 }}>
+                    {r.focusedRecruiters.slice(0, 3).map((rec: any, i: number) => (
+                      <div key={rec.id} title={rec.name} style={{ 
+                        width:22, height:22, borderRadius:'50%', 
+                        background: rec.avatar ? `url(${rec.avatar}) center/cover` : 'var(--ink)',
+                        color:'#fff', fontSize:9, display:'flex', alignItems:'center', justifyContent:'center',
+                        marginLeft: i > 0 ? -6 : 0, border:'2px solid var(--paper)',
+                        fontFamily:'var(--mono)', letterSpacing:'.05em'
+                      }}>
+                        {!rec.avatar && (rec.name?.substring(0,2).toUpperCase() || '?')}
+                      </div>
+                    ))}
+                    {r.focusedRecruiters.length > 3 && (
+                      <div style={{ 
+                        width:22, height:22, borderRadius:'50%', 
+                        background:'var(--paper-2)', color:'var(--t-3)',
+                        fontSize:9, display:'flex', alignItems:'center', justifyContent:'center',
+                        marginLeft:-6, border:'2px solid var(--paper)',
+                        fontFamily:'var(--mono)'
+                      }}>
+                        +{r.focusedRecruiters.length - 3}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <div>
                 {r.status === 'open'   && <AChip tone="ok">OPEN</AChip>}
                 {r.status === 'paused' && <AChip tone="paper">PAUSED</AChip>}
