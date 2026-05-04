@@ -1,10 +1,11 @@
 'use client';
 import React, { useState } from 'react';
-import ADMIN_DATA from './AdminData';
-import { KpiTile as BKpi, Chip as BChip } from './AdminViews';
+import { useRecruiters, useApplications, useRoles, transformRecruitersForUI, transformRolesForUI } from '@/lib/hooks/useAdminData';
+import { KpiTile as BKpi, Chip as BChip, SkeletonStats, SkeletonTable } from './AdminViews';
 import { showToast } from './Toast';
+import { Pagination, usePagination } from './Pagination';
 
-function RecruiterDrawer({ recruiter, onClose, onApprove, onReject, onRevoke, onRestore }: any) {
+function RecruiterDrawer({ recruiter, onClose, onApprove, onReject, onRevoke, onRestore, roles = [] }: any) {
   const r = recruiter;
   const conv = r.submitted > 0 ? Math.round((r.placed / r.submitted) * 100) : 0;
   const weeks = [3, 5, 7, 4, 6, 8, 5, 4];
@@ -130,7 +131,7 @@ function RecruiterDrawer({ recruiter, onClose, onApprove, onReject, onRevoke, on
               </div>
               <div className="mono" style={{ fontSize:10, letterSpacing:'.2em', color:'var(--t-4)', marginBottom:10 }}>§ ACTIVE ROLES</div>
               <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {ADMIN_DATA.roles.slice(0, Math.min(r.roles, 3)).map((role: any) => (
+                {roles.slice(0, Math.min(r.roles || 3, 3)).map((role: any) => (
                   <div key={role.id} style={{ display:'flex', justifyContent:'space-between', padding:'10px 14px', border:'1px solid var(--hair)', borderRadius:2 }}>
                     <div>
                       <div style={{ fontFamily:'var(--serif)', fontSize:15, fontStyle:'italic', letterSpacing:'-0.01em' }}>{role.title}</div>
@@ -155,13 +156,20 @@ function RecruiterDrawer({ recruiter, onClose, onApprove, onReject, onRevoke, on
 }
 
 export function AdminRecruiters() {
-  const d = ADMIN_DATA;
-  const [tab, setTab] = useState('pending');
+  const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
+  const { data: applicationsData, isLoading: appsLoading } = useApplications();
+  const { data: rolesData, isLoading: rolesLoading } = useRoles();
+  
+  const [tab, setTab] = useState('all');
   const [drawer, setDrawer] = useState<any>(null);
   const [overrides, setOverrides] = useState<Record<string, any>>({});
 
+  const recruiters = transformRecruitersForUI(recruitersData || [], applicationsData || []);
+  const roles = transformRolesForUI(rolesData || [], applicationsData || []);
+  const isLoading = recruitersLoading || appsLoading || rolesLoading;
+
   const patch = (id: string, p: any) => setOverrides(o => ({ ...o, [id]: { ...o[id], ...p } }));
-  const view = d.recruiters.map((r: any) => ({ ...r, ...(overrides[r.id] || {}) }));
+  const view = recruiters.map((r: any) => ({ ...r, ...(overrides[r.id] || {}) }));
 
   const tabs = [
     { k:'all',     l:'All',     n: view.length },
@@ -171,7 +179,17 @@ export function AdminRecruiters() {
     { k:'revoked', l:'Revoked', n: view.filter((r: any) => r.status === 'revoked').length },
   ];
 
-  const items = view.filter((r: any) => tab === 'all' ? true : r.status === tab);
+  const filteredItems = view.filter((r: any) => tab === 'all' ? true : r.status === tab);
+  
+  // Pagination
+  const { 
+    currentPage, 
+    setCurrentPage, 
+    totalPages, 
+    paginatedItems: items, 
+    totalItems,
+    itemsPerPage 
+  } = usePagination(filteredItems, 25);
 
   const approve = (r: any) => { patch(r.id, { status:'active' }); showToast(`Approved · ${r.name}`, { kind:'ok' } as any); };
   const reject  = (r: any) => { patch(r.id, { status:'revoked' }); showToast(`Rejected · ${r.name}`); };
@@ -179,36 +197,43 @@ export function AdminRecruiters() {
   const restore = (r: any) => { patch(r.id, { status:'active' }); showToast(`Restored · ${r.name}`, { kind:'ok' } as any); };
 
   return (
-    <div className="pad-mobile" style={{ padding:'40px 48px 80px', maxWidth:1800 }}>
+    <div className="recruiters-page">
       <div className="masthead" style={{ marginBottom:28 }}>
         <div className="mono" style={{ fontSize:10, letterSpacing:'.22em', color:'var(--t-4)' }}>SECTION · RECRUITERS</div>
         <h1 className="serif" style={{ fontSize:'clamp(44px, 5.2vw, 60px)', fontStyle:'italic', lineHeight:1.02, letterSpacing:'-0.03em', marginTop:10 }}>
           The people who place<br/><span style={{ color:'var(--t-4)' }}>our people.</span>
         </h1>
       </div>
-      <div className="stat-strip" style={{ display:'flex', border:'1px solid var(--hair)', borderRight:0, marginBottom:32 }}>
-        <BKpi label="TOTAL"   value={view.length}/>
-        <BKpi label="ACTIVE"  value={view.filter((r: any) => r.status === 'active').length}/>
-        <BKpi label="PENDING" value={view.filter((r: any) => r.status === 'pending').length} sub="AWAITING REVIEW"/>
-        <BKpi label="REVENUE" value={'$' + (view.reduce((s: number, r: any) => s + r.rev, 0) / 1000).toFixed(0) + 'k'} sub="ALL TIME"/>
-      </div>
-      <div style={{ borderBottom:'1px solid var(--hair)', display:'flex', gap:28, alignItems:'flex-end', marginBottom:20, flexWrap:'wrap' }}>
-        {tabs.map(t => {
-          const A = tab === t.k;
-          return (
-            <button key={t.k} onClick={() => setTab(t.k)} style={{ appearance:'none', border:0, background:'transparent', cursor:'pointer', padding:'10px 0', position:'relative', color: A ? 'var(--ink)' : 'var(--t-3)', fontFamily:'var(--serif)', fontSize:18, fontStyle: A ? 'italic' : 'normal', letterSpacing:'-0.01em' }}>
-              {t.l}<span className="mono" style={{ marginLeft:8, fontSize:10, color: t.k === 'pending' && t.n > 0 ? 'var(--err)' : 'var(--t-4)', letterSpacing:'.14em' }}>{t.n}</span>
-              {A && <span style={{ position:'absolute', left:0, right:0, bottom:-1, height:2, background:'var(--ink)' }}/>}
-            </button>
-          );
-        })}
-      </div>
-      <div style={{ border:'1px solid var(--hair)', borderRadius:2, overflow:'hidden', background:'#fff' }}>
-        <div className="mono" style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr 80px 100px 90px 110px 200px', gap:16, padding:'12px 20px', borderBottom:'1px solid var(--hair)', background:'color-mix(in oklch, var(--paper) 50%, #fff)', fontSize:10, letterSpacing:'.16em', color:'var(--t-4)' }}>
-          <span>RECRUITER</span><span>AGENCY</span><span>ROLES</span><span>PLACED</span><span>REVENUE</span><span>STATUS</span><span style={{ textAlign:'right' }}>ACTIONS</span>
-        </div>
-        {items.map((r: any, i: number) => (
-          <div key={r.id} style={{ display:'grid', gridTemplateColumns:'1.4fr 1fr 80px 100px 90px 110px 200px', gap:16, padding:'16px 20px', borderBottom: i < items.length - 1 ? '1px solid var(--hair)' : 'none', alignItems:'center' }}>
+      {isLoading ? (
+        <>
+          <SkeletonStats count={4} />
+          <SkeletonTable rows={8} cols={7} />
+        </>
+      ) : (
+        <>
+          <div className="stat-strip" style={{ display:'flex', border:'1px solid var(--hair)', borderRight:0, marginBottom:32, flexWrap:'wrap' }}>
+            <BKpi label="TOTAL"   value={view.length}/>
+            <BKpi label="ACTIVE"  value={view.filter((r: any) => r.status === 'active').length}/>
+            <BKpi label="PENDING" value={view.filter((r: any) => r.status === 'pending').length} sub="AWAITING REVIEW"/>
+            <BKpi label="REVENUE" value={'$' + (view.reduce((s: number, r: any) => s + (r.rev || 0), 0) / 1000).toFixed(0) + 'k'} sub="ALL TIME"/>
+          </div>
+          <div style={{ borderBottom:'1px solid var(--hair)', display:'flex', gap:28, alignItems:'flex-end', marginBottom:20, flexWrap:'wrap' }}>
+            {tabs.map(t => {
+              const A = tab === t.k;
+              return (
+                <button key={t.k} onClick={() => setTab(t.k)} style={{ appearance:'none', border:0, background:'transparent', cursor:'pointer', padding:'10px 0', position:'relative', color: A ? 'var(--ink)' : 'var(--t-3)', fontFamily:'var(--serif)', fontSize:18, fontStyle: A ? 'italic' : 'normal', letterSpacing:'-0.01em' }}>
+                  {t.l}<span className="mono" style={{ marginLeft:8, fontSize:10, color: t.k === 'pending' && t.n > 0 ? 'var(--err)' : 'var(--t-4)', letterSpacing:'.14em' }}>{t.n}</span>
+                  {A && <span style={{ position:'absolute', left:0, right:0, bottom:-1, height:2, background:'var(--ink)' }}/>}
+                </button>
+              );
+            })}
+          </div>
+          <div className="recruiters-table" style={{ border:'1px solid var(--hair)', borderRadius:2, overflow:'hidden', background:'#fff' }}>
+            <div className="recruiters-header mono" style={{ fontSize:10, letterSpacing:'.16em', color:'var(--t-4)' }}>
+              <span>RECRUITER</span><span>AGENCY</span><span>ROLES</span><span>PLACED</span><span>REVENUE</span><span>STATUS</span><span style={{ textAlign:'right' }}>ACTIONS</span>
+            </div>
+            {items.map((r: any, i: number) => (
+              <div key={r.id} className="recruiters-row" style={{ borderBottom: i < items.length - 1 ? '1px solid var(--hair)' : 'none' }}>
             <button onClick={() => setDrawer(r)} style={{ appearance:'none', border:0, background:'transparent', cursor:'pointer', textAlign:'left', padding:0, display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
               <div style={{ width:36, height:36, borderRadius:999, background:'var(--ink)', color:'#F3E6CE', display:'flex', alignItems:'center', justifyContent:'center', fontFamily:'var(--serif)', fontSize:13, fontStyle:'italic', flexShrink:0 }}>
                 {r.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('')}
@@ -231,9 +256,26 @@ export function AdminRecruiters() {
             </div>
           </div>
         ))}
-        {!items.length && <div style={{ padding:'60px 20px', textAlign:'center', color:'var(--t-4)', fontStyle:'italic', fontFamily:'var(--serif)' }}>No recruiters in this bucket.</div>}
-      </div>
-      {drawer && <RecruiterDrawer recruiter={drawer} onClose={() => setDrawer(null)} onApprove={approve} onReject={reject} onRevoke={revoke} onRestore={restore}/>}
+        {!items.length && (
+              <div style={{ padding:'60px 20px', textAlign:'center', color:'var(--t-4)', fontStyle:'italic', fontFamily:'var(--serif)' }}>
+                <div>No recruiters in this view.</div>
+                <div className="mono" style={{ fontSize:10, marginTop:12, fontStyle:'normal', color:'var(--t-4)' }}>
+                  Total in database: {recruitersData?.length || 0} user profiles
+                </div>
+              </div>
+            )}
+            <Pagination 
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              itemLabel="recruiters"
+            />
+          </div>
+        </>
+      )}
+      {drawer && <RecruiterDrawer recruiter={drawer} onClose={() => setDrawer(null)} onApprove={approve} onReject={reject} onRevoke={revoke} onRestore={restore} roles={roles}/>}
     </div>
   );
 }

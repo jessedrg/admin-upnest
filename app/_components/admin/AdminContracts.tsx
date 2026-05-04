@@ -1,7 +1,9 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useRecruiters, useOrganizations, useAgencies } from '@/lib/hooks/useAdminData';
 import { SectionTitle as BSec, Hairline as BHair, Chip as BChip } from './AdminViews';
 import { showToast } from './Toast';
+import { Pagination, usePagination } from './Pagination';
 
 function CountersignModal({ contract, onClose, onSign }: any) {
   const [name, setName] = useState('Casey Nguyen');
@@ -48,31 +50,125 @@ function CountersignModal({ contract, onClose, onSign }: any) {
   );
 }
 
+function formatTimeAgo(dateString: string | null): string {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  return `${Math.floor(diffDays / 30)}mo ago`;
+}
+
 export function AdminContracts() {
-  const [pending, setPending] = useState([
-    { id:'ct-p1', num:'MSA-01301', org:'Parabol Partners', kind:'Agency MSA',       fee:'22%', guarantee:'90 days', submitted:'2d ago', submittedBy:'Rowan Tao',  status:'awaiting-counter' },
-    { id:'ct-p2', num:'MSA-01299', org:'Cedar & Finch',    kind:'Agency MSA',       fee:'20%', guarantee:'60 days', submitted:'4d ago', submittedBy:'Mina Osei',  status:'awaiting-counter' },
-    { id:'ct-p3', num:'AMD-00042', org:'Stripe',           kind:'Fee amendment v2', fee:'21%', guarantee:'—',       submitted:'1w ago', submittedBy:'Mel Patel',  status:'awaiting-counter' },
-  ]);
-  const [signed, setSigned] = useState([
-    { id:'ct-01', num:'MSA-01284', org:'Ramp',             kind:'Agency MSA',       fee:'22%', guarantee:'90 days',  signed:'2024-03-12', status:'active' },
-    { id:'ct-02', num:'MSA-01277', org:'Anthropic',        kind:'Agency MSA + NDA', fee:'25%', guarantee:'120 days', signed:'2024-01-04', status:'active' },
-    { id:'ct-03', num:'MSA-01272', org:'Stripe',           kind:'Agency MSA',       fee:'22%', guarantee:'90 days',  signed:'2023-11-18', status:'active' },
-    { id:'ct-04', num:'MSA-01268', org:'Linear',           kind:'Growth MSA',       fee:'22%', guarantee:'60 days',  signed:'2024-05-20', status:'expiring' },
-    { id:'ct-05', num:'MSA-01265', org:'Vercel',           kind:'Agency MSA',       fee:'22%', guarantee:'90 days',  signed:'2024-04-04', status:'active' },
-    { id:'ct-06', num:'MSA-01251', org:'Northfield Talent',kind:'Recruiter T&Cs',  fee:'—',   guarantee:'—',        signed:'2024-06-08', status:'dormant' },
-  ]);
+  const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
+  const { data: orgsData, isLoading: orgsLoading } = useOrganizations();
+  const { data: agenciesData, isLoading: agenciesLoading } = useAgencies();
+
+  const isLoading = recruitersLoading || orgsLoading || agenciesLoading;
+
+  // Transform recruiters with signed contracts
+  const contractsFromRecruiters = useMemo(() => {
+    if (!recruitersData) return [];
+    return recruitersData
+      .filter((r: any) => r.contract_signed_at)
+      .map((r: any, i: number) => ({
+        id: r.id,
+        num: `REC-${String(i + 1).padStart(5, '0')}`,
+        org: r.agencies?.name || 'Independent',
+        kind: r.contract_type || 'Recruiter Agreement',
+        fee: r.bounty_percentage ? `${r.bounty_percentage}%` : '20%',
+        guarantee: '—',
+        signed: r.contract_signed_at?.split('T')[0] || '',
+        status: r.status === 'active' ? 'active' : r.status === 'pending' ? 'pending' : 'dormant',
+        name: r.full_name || r.email,
+      }));
+  }, [recruitersData]);
+
+  // Transform agencies as contracts
+  const contractsFromAgencies = useMemo(() => {
+    if (!agenciesData) return [];
+    return agenciesData.map((a: any, i: number) => ({
+      id: a.id,
+      num: `AGY-${String(i + 1).padStart(5, '0')}`,
+      org: a.name,
+      kind: 'Agency MSA',
+      fee: a.agency_commission_percentage ? `${a.agency_commission_percentage}%` : '22%',
+      guarantee: '90 days',
+      signed: a.created_at?.split('T')[0] || '',
+      status: a.is_active ? 'active' : 'dormant',
+    }));
+  }, [agenciesData]);
+
+  // Transform client organizations as contracts
+  const contractsFromOrgs = useMemo(() => {
+    if (!orgsData) return [];
+    return orgsData.map((o: any, i: number) => ({
+      id: o.id,
+      num: `CLT-${String(i + 1).padStart(5, '0')}`,
+      org: o.name,
+      kind: `${o.account_type || 'Growth'} MSA`,
+      fee: o.agency_commission ? `${o.agency_commission}%` : '22%',
+      guarantee: '90 days',
+      signed: o.created_at?.split('T')[0] || '',
+      status: 'active',
+    }));
+  }, [orgsData]);
+
+  // Combine all contracts
+  const allContractsList = useMemo(() => {
+    return [...contractsFromAgencies, ...contractsFromOrgs, ...contractsFromRecruiters]
+      .sort((a, b) => (b.signed || '').localeCompare(a.signed || ''));
+  }, [contractsFromAgencies, contractsFromOrgs, contractsFromRecruiters]);
+
+  // Pagination
+  const { 
+    currentPage, 
+    setCurrentPage, 
+    totalPages, 
+    paginatedItems: allContracts, 
+    totalItems,
+    itemsPerPage 
+  } = usePagination(allContractsList, 25);
+
+  // Pending contracts (recruiters awaiting countersign)
+  const pending = useMemo(() => {
+    if (!recruitersData) return [];
+    return recruitersData
+      .filter((r: any) => r.contract_signature && !r.contract_countersigned_at)
+      .map((r: any, i: number) => ({
+        id: r.id,
+        num: `PND-${String(i + 1).padStart(5, '0')}`,
+        org: r.agencies?.name || 'Independent',
+        kind: r.contract_type || 'Recruiter Agreement',
+        fee: r.bounty_percentage ? `${r.bounty_percentage}%` : '20%',
+        guarantee: '—',
+        submitted: formatTimeAgo(r.contract_signed_at || r.created_at),
+        submittedBy: r.full_name || r.email,
+        status: 'awaiting-counter',
+      }));
+  }, [recruitersData]);
+
+  const [localPending, setLocalPending] = useState<any[]>([]);
   const [signing, setSigning] = useState<any>(null);
 
+  // Merge DB pending with local state
+  const displayPending = [...pending, ...localPending];
+
   const countersign = (c: any) => {
-    const today = new Date().toISOString().slice(0, 10);
-    setPending(p => p.filter(x => x.id !== c.id));
-    setSigned(s => [{ ...c, signed: today, status:'active' }, ...s]);
+    // In real app, would update the user_profile in Supabase
+    setLocalPending(p => p.filter(x => x.id !== c.id));
     showToast(`Countersigned · ${c.num}`, { kind:'ok' } as any);
     setSigning(null);
   };
   const rejectContract = (c: any) => {
-    setPending(p => p.filter(x => x.id !== c.id));
+    setLocalPending(p => p.filter(x => x.id !== c.id));
     showToast(`Sent back · ${c.num}`);
     setSigning(null);
   };
@@ -92,13 +188,13 @@ export function AdminContracts() {
         </h1>
       </div>
 
-      {pending.length > 0 && (
+      {displayPending.length > 0 && (
         <div style={{ marginBottom:36 }}>
-          <BSec num="§ 00" title="Awaiting your countersign" sub={`${pending.length} PENDING`}/>
+          <BSec num="§ 00" title="Awaiting your countersign" sub={`${displayPending.length} PENDING`}/>
           <BHair/>
           <div style={{ border:'1px solid var(--plum-500)', borderRadius:2, background:'var(--plum-50)', overflow:'hidden' }}>
-            {pending.map((c, i) => (
-              <div key={c.id} style={{ display:'grid', gridTemplateColumns:'120px 1fr 1.4fr 90px 120px 140px 200px', gap:16, padding:'16px 20px', borderBottom: i < pending.length - 1 ? '1px solid rgba(123,92,180,.2)' : 'none', alignItems:'center' }}>
+            {displayPending.map((c, i) => (
+              <div key={c.id} style={{ display:'grid', gridTemplateColumns:'120px 1fr 1.4fr 90px 120px 140px 200px', gap:16, padding:'16px 20px', borderBottom: i < displayPending.length - 1 ? '1px solid rgba(123,92,180,.2)' : 'none', alignItems:'center' }}>
                 <span className="mono" style={{ fontSize:11, letterSpacing:'.12em', color:'var(--plum-700)' }}>{c.num}</span>
                 <span style={{ fontFamily:'var(--serif)', fontSize:16, fontStyle:'italic' }}>{c.org}</span>
                 <span style={{ fontFamily:'var(--serif)', fontSize:14, color:'var(--t-2)' }}>{c.kind}</span>
@@ -135,24 +231,40 @@ export function AdminContracts() {
         </div>
       </div>
 
-      <BSec num="§ 02" title="Signed agreements"/>
+      <BSec num="§ 02" title="Signed agreements" sub={isLoading ? 'LOADING...' : `${totalItems} TOTAL`}/>
       <BHair/>
-      <div style={{ border:'1px solid var(--hair)', borderRadius:2, background:'#fff', overflow:'hidden' }}>
-        <div className="mono" style={{ display:'grid', gridTemplateColumns:'120px 1fr 1.4fr 90px 120px 110px 110px', gap:16, padding:'12px 20px', borderBottom:'1px solid var(--hair)', background:'color-mix(in oklch, var(--paper) 50%, #fff)', fontSize:10, letterSpacing:'.16em', color:'var(--t-4)' }}>
-          <span>NO.</span><span>ORG</span><span>KIND</span><span>FEE</span><span>GUARANTEE</span><span>SIGNED</span><span>STATUS</span>
+      {isLoading ? (
+        <div style={{ padding:'40px', textAlign:'center', color:'var(--t-4)' }}>Loading contracts...</div>
+      ) : allContracts.length === 0 ? (
+        <div style={{ padding:'40px', textAlign:'center', color:'var(--t-4)', border:'1px solid var(--hair)' }}>
+          No contracts found. Add agencies, organizations, or recruiters to see contracts here.
         </div>
-        {signed.map((c, i) => (
-          <div key={c.id} style={{ display:'grid', gridTemplateColumns:'120px 1fr 1.4fr 90px 120px 110px 110px', gap:16, padding:'16px 20px', borderBottom: i < signed.length - 1 ? '1px solid var(--hair)' : 'none', alignItems:'center' }}>
-            <span className="mono" style={{ fontSize:11, letterSpacing:'.12em', color:'var(--t-3)' }}>{c.num}</span>
-            <span style={{ fontFamily:'var(--serif)', fontSize:16, fontStyle:'italic', letterSpacing:'-0.01em' }}>{c.org}</span>
-            <span style={{ fontFamily:'var(--serif)', fontSize:14, color:'var(--t-2)' }}>{c.kind}</span>
-            <span className="mono" style={{ fontSize:11 }}>{c.fee}</span>
-            <span className="mono" style={{ fontSize:11 }}>{c.guarantee}</span>
-            <span className="mono" style={{ fontSize:11, color:'var(--t-3)' }}>{c.signed}</span>
-            <span><BChip tone={c.status==='active'?'ok':c.status==='expiring'?'warn':'paper'}>{c.status.toUpperCase()}</BChip></span>
+      ) : (
+        <div style={{ border:'1px solid var(--hair)', borderRadius:2, background:'#fff', overflow:'hidden' }}>
+          <div className="mono" style={{ display:'grid', gridTemplateColumns:'120px 1fr 1.4fr 90px 120px 110px 110px', gap:16, padding:'12px 20px', borderBottom:'1px solid var(--hair)', background:'color-mix(in oklch, var(--paper) 50%, #fff)', fontSize:10, letterSpacing:'.16em', color:'var(--t-4)' }}>
+            <span>NO.</span><span>ORG</span><span>KIND</span><span>FEE</span><span>GUARANTEE</span><span>SIGNED</span><span>STATUS</span>
           </div>
-        ))}
-      </div>
+          {allContracts.map((c: any, i: number) => (
+            <div key={c.id} style={{ display:'grid', gridTemplateColumns:'120px 1fr 1.4fr 90px 120px 110px 110px', gap:16, padding:'16px 20px', borderBottom: i < allContracts.length - 1 ? '1px solid var(--hair)' : 'none', alignItems:'center' }}>
+              <span className="mono" style={{ fontSize:11, letterSpacing:'.12em', color:'var(--t-3)' }}>{c.num}</span>
+              <span style={{ fontFamily:'var(--serif)', fontSize:16, fontStyle:'italic', letterSpacing:'-0.01em' }}>{c.org}</span>
+              <span style={{ fontFamily:'var(--serif)', fontSize:14, color:'var(--t-2)' }}>{c.kind}</span>
+              <span className="mono" style={{ fontSize:11 }}>{c.fee}</span>
+              <span className="mono" style={{ fontSize:11 }}>{c.guarantee}</span>
+              <span className="mono" style={{ fontSize:11, color:'var(--t-3)' }}>{c.signed}</span>
+              <span><BChip tone={c.status==='active'?'ok':c.status==='expiring'?'warn':'paper'}>{c.status.toUpperCase()}</BChip></span>
+            </div>
+          ))}
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            itemLabel="contracts"
+          />
+        </div>
+      )}
 
       {signing && <CountersignModal contract={signing} onClose={() => setSigning(null)} onSign={() => countersign(signing)}/>}
     </div>

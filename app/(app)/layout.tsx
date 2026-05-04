@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import { AdminNav, AdminTopBar } from '../_components/admin/AdminShell';
 import Icons from '../_components/admin/Icons';
 import { ToastHost } from '../_components/admin/Toast';
@@ -39,12 +40,41 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const meta = ROUTE_META[seg] || ROUTE_META.overview;
 
   useEffect(() => {
-    try {
-      const auth = JSON.parse(localStorage.getItem('upnest:auth') || '{}');
-      if (!auth.admin) router.replace('/login');
-      else setAuthed(true);
-    } catch { router.replace('/login'); }
-    setAuthChecked(true);
+    const checkAuth = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          router.replace('/login');
+          setAuthChecked(true);
+          return;
+        }
+
+        // Verify admin status
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('role, user_type')
+          .eq('id', user.id)
+          .single();
+        
+        const isAdmin = profile?.role === 'admin' || profile?.user_type === 'admin' || profile?.role === 'platform_admin';
+        
+        if (!isAdmin) {
+          await supabase.auth.signOut();
+          localStorage.removeItem('upnest:auth');
+          router.replace('/login');
+        } else {
+          setAuthed(true);
+        }
+      } catch (err) {
+        console.error('Auth check failed:', err);
+        router.replace('/login');
+      }
+      setAuthChecked(true);
+    };
+    
+    checkAuth();
   }, [router]);
 
   // Listen for cross-page events
@@ -70,12 +100,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (ROUTE_META[k]) router.push('/' + k);
   }, [router]);
 
-  const onExitAdmin = useCallback(() => {
+  const onExitAdmin = useCallback(async () => {
     try {
-      const auth = JSON.parse(localStorage.getItem('upnest:auth') || '{}');
-      auth.admin = false;
-      localStorage.setItem('upnest:auth', JSON.stringify(auth));
-    } catch {}
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      localStorage.removeItem('upnest:auth');
+    } catch (err) {
+      console.error('Signout error:', err);
+    }
     router.push('/login');
   }, [router]);
 
