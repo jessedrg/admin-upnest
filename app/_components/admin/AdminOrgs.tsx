@@ -300,7 +300,7 @@ function ApproveModal({ org, onClose, onApprove, onReject }: any) {
 }
 
 export function AdminOrgs() {
-  const { data: orgsData, isLoading: orgsLoading } = useOrganizations();
+  const { data: orgsData, isLoading: orgsLoading, mutate: mutateOrgs } = useOrganizations();
   const { data: agenciesData, isLoading: agenciesLoading } = useAgencies();
   const { data: rolesData, isLoading: rolesLoading } = useRoles();
   const { data: applicationsData, isLoading: appsLoading } = useApplications();
@@ -342,10 +342,10 @@ export function AdminOrgs() {
       
       if (error) throw error;
       
-      showToast(`Deleted · ${org.name}`, { kind: 'ok' } as any);
+      showToast(`Deleted · ${org.name}`);
       setDeleting(null);
-      // Trigger SWR revalidation
-      window.location.reload();
+      // Trigger SWR revalidation without page reload
+      mutateOrgs();
     } catch (err) {
       console.error('[v0] Error deleting org:', err);
       showToast(`Failed to delete ${org.name}`);
