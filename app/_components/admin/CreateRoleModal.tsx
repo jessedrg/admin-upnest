@@ -60,16 +60,21 @@ function ReviewStep({ draft, onClose, onCreated }: any) {
   const [tab, setTab] = useState('basic');
   const [title, setTitle] = useState(draft.title || '');
   const [org, setOrg] = useState(draft.org || '');
-  const [location, setLocation] = useState(draft.location || 'San Francisco');
+  const [location, setLocation] = useState(draft.location || '');
   const [workMode, setWorkMode] = useState(draft.workMode || 'Hybrid');
   const [seniority, setSeniority] = useState(draft.seniority || 'Senior');
-  const [salary, setSalary] = useState(draft.salary || '$160–210k');
+  const [salary, setSalary] = useState(draft.salary || '');
   const [headcount, setHeadcount] = useState(draft.headcount || 1);
   const [priority, setPriority] = useState(draft.priority || 'med');
   const [description, setDescription] = useState(draft.description || '');
   const [requirements, setRequirements] = useState(draft.requirements || '');
   const [skills, setSkills] = useState<string[]>(draft.skills || []);
+  const [niceToHaveSkills, setNiceToHaveSkills] = useState<string[]>(draft.niceToHaveSkills || []);
+  const [benefits, setBenefits] = useState<string[]>(draft.benefits || []);
+  const [teamSize, setTeamSize] = useState(draft.teamSize || '');
+  const [reportsTo, setReportsTo] = useState(draft.reportsTo || '');
   const [newSkill, setNewSkill] = useState('');
+  const [newNiceSkill, setNewNiceSkill] = useState('');
 
   const tabs = [{ k:'basic', l:'Basic' },{ k:'details', l:'Details' },{ k:'skills', l:'Skills' },{ k:'recruiter', l:'Recruiter' }];
 
@@ -90,6 +95,9 @@ function ReviewStep({ draft, onClose, onCreated }: any) {
           description: description || null,
           requirements: requirements || null,
           skills_required: skills.length > 0 ? skills : null,
+          nice_to_have_skills: niceToHaveSkills.length > 0 ? niceToHaveSkills : null,
+          team_size: teamSize || null,
+          reports_to: reportsTo || null,
           status: 'open',
           is_published: true,
           published_at: new Date().toISOString(),
@@ -146,12 +154,14 @@ function ReviewStep({ draft, onClose, onCreated }: any) {
                 </select>
               </Field>
               <Field label="Headcount"><input type="number" min={1} value={headcount} onChange={e => setHeadcount(+e.target.value)} style={inp}/></Field>
-              <Field label="Salary range"><input value={salary} onChange={e => setSalary(e.target.value)} style={inp}/></Field>
+              <Field label="Salary range"><input value={salary} onChange={e => setSalary(e.target.value)} placeholder="$150k-180k" style={inp}/></Field>
               <Field label="Priority">
                 <select value={priority} onChange={e => setPriority(e.target.value)} style={inp}>
                   <option value="high">High</option><option value="med">Medium</option><option value="low">Low</option>
                 </select>
               </Field>
+              <Field label="Team size"><input value={teamSize} onChange={e => setTeamSize(e.target.value)} placeholder="e.g. 5-8 engineers" style={inp}/></Field>
+              <Field label="Reports to"><input value={reportsTo} onChange={e => setReportsTo(e.target.value)} placeholder="e.g. VP of Engineering" style={inp}/></Field>
             </div>
           </div>
         )}
@@ -166,20 +176,40 @@ function ReviewStep({ draft, onClose, onCreated }: any) {
           </div>
         )}
         {tab === 'skills' && (
-          <div style={{ display:'flex', flexDirection:'column', gap:18 }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:24 }}>
             <Field label="Must-have skills">
               <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:10 }}>
                 {skills.map(s => (
-                  <span key={s} style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'4px 10px', border:'1px solid var(--hair)', borderRadius:999, fontFamily:'var(--serif)', fontSize:13 }}>
+                  <span key={s} style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'4px 10px', border:'1px solid var(--plum-300)', background:'var(--plum-50)', borderRadius:999, fontFamily:'var(--serif)', fontSize:13 }}>
                     {s}<button onClick={() => setSkills(ss => ss.filter(x => x !== s))} style={{ appearance:'none', border:0, background:'transparent', cursor:'pointer', color:'var(--t-4)', fontSize:12 }}>✕</button>
                   </span>
                 ))}
               </div>
               <div style={{ display:'flex', gap:8 }}>
-                <input value={newSkill} onChange={e => setNewSkill(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newSkill.trim()) { setSkills(s => [...s, newSkill.trim()]); setNewSkill(''); }}} placeholder="Add skill + Enter" style={{ ...inp, flex:1 }}/>
+                <input value={newSkill} onChange={e => setNewSkill(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newSkill.trim()) { setSkills(s => [...s, newSkill.trim()]); setNewSkill(''); }}} placeholder="Add required skill + Enter" style={{ ...inp, flex:1 }}/>
                 <button onClick={() => { if (newSkill.trim()) { setSkills(s => [...s, newSkill.trim()]); setNewSkill(''); }}} className="btn btn-ghost" style={{ padding:'10px 14px' }}>Add</button>
               </div>
             </Field>
+            <Field label="Nice-to-have skills">
+              <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:10 }}>
+                {niceToHaveSkills.map(s => (
+                  <span key={s} style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'4px 10px', border:'1px solid var(--hair)', borderRadius:999, fontFamily:'var(--serif)', fontSize:13 }}>
+                    {s}<button onClick={() => setNiceToHaveSkills(ss => ss.filter(x => x !== s))} style={{ appearance:'none', border:0, background:'transparent', cursor:'pointer', color:'var(--t-4)', fontSize:12 }}>✕</button>
+                  </span>
+                ))}
+              </div>
+              <div style={{ display:'flex', gap:8 }}>
+                <input value={newNiceSkill} onChange={e => setNewNiceSkill(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && newNiceSkill.trim()) { setNiceToHaveSkills(s => [...s, newNiceSkill.trim()]); setNewNiceSkill(''); }}} placeholder="Add preferred skill + Enter" style={{ ...inp, flex:1 }}/>
+                <button onClick={() => { if (newNiceSkill.trim()) { setNiceToHaveSkills(s => [...s, newNiceSkill.trim()]); setNewNiceSkill(''); }}} className="btn btn-ghost" style={{ padding:'10px 14px' }}>Add</button>
+              </div>
+            </Field>
+            {benefits.length > 0 && (
+              <Field label="Benefits extracted">
+                <ul style={{ margin:0, paddingLeft:20, fontFamily:'var(--serif)', fontSize:14, lineHeight:1.8, color:'var(--t-2)' }}>
+                  {benefits.map((b, i) => <li key={i}>{b}</li>)}
+                </ul>
+              </Field>
+            )}
           </div>
         )}
         {tab === 'recruiter' && (
@@ -197,25 +227,67 @@ function ReviewStep({ draft, onClose, onCreated }: any) {
   );
 }
 
-// Draft generated from JD (deterministic mock)
-function generateDraft(jd: string) {
-  const lower = jd.toLowerCase();
-  const title = lower.includes('engineer') ? 'Senior Software Engineer' : lower.includes('designer') ? 'Senior Product Designer' : lower.includes('pm') || lower.includes('product manager') ? 'Product Manager' : 'Senior Engineer';
-  const salary = lower.includes('staff') || lower.includes('principal') ? '$240–320k' : lower.includes('junior') ? '$110–140k' : '$170–220k';
-  const skills = lower.includes('rust') ? ['Rust','Systems','Compilers'] : lower.includes('python') ? ['Python','ML','PyTorch'] : ['TypeScript','React','Node','Postgres'];
-  return { title, salary, skills, workMode:'Hybrid', seniority:'Senior', headcount:1, priority:'med', location:'San Francisco', description: jd.slice(0, 300), requirements: '' };
+// Analyze job description using AI
+async function analyzeJobDescription(jd: string): Promise<any> {
+  try {
+    const response = await fetch('/api/analyze-jd', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobDescription: jd }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to analyze');
+    }
+    
+    const data = await response.json();
+    const r = data.role;
+    
+    // Map AI response to draft format
+    return {
+      title: r.title || 'New Role',
+      org: r.company || '',
+      location: r.location || '',
+      workMode: r.workMode || 'Hybrid',
+      seniority: r.seniority || 'Senior',
+      salary: r.salaryRange || (r.salaryMin && r.salaryMax ? `$${Math.round(r.salaryMin/1000)}k-${Math.round(r.salaryMax/1000)}k` : ''),
+      headcount: 1,
+      priority: 'med',
+      description: r.description || '',
+      requirements: r.requirements || '',
+      skills: r.mustHaveSkills || [],
+      niceToHaveSkills: r.niceToHaveSkills || [],
+      benefits: r.benefits || [],
+      teamSize: r.teamSize,
+      reportsTo: r.reportsTo,
+    };
+  } catch (err: any) {
+    console.error('[v0] AI analysis failed:', err);
+    // Fallback to basic extraction
+    const lower = jd.toLowerCase();
+    const title = lower.includes('engineer') ? 'Software Engineer' : lower.includes('designer') ? 'Product Designer' : lower.includes('product manager') ? 'Product Manager' : 'New Role';
+    return { title, org: '', location: '', workMode: 'Hybrid', seniority: 'Senior', salary: '', headcount: 1, priority: 'med', description: jd.slice(0, 500), requirements: '', skills: [] };
+  }
 }
 
 export function CreateRoleModal({ open, closing, onClose, onCreated }: any) {
   const [phase, setPhase] = useState<'input'|'analyzing'|'review'>('input');
   const [draft, setDraft] = useState<any>({});
+  const [error, setError] = useState<string | null>(null);
 
-  const handleInput = (jd: string) => {
+  const handleInput = async (jd: string) => {
     setPhase('analyzing');
-    setTimeout(() => {
-      setDraft(generateDraft(jd));
+    setError(null);
+    try {
+      const result = await analyzeJobDescription(jd);
+      setDraft(result);
       setPhase('review');
-    }, 2400);
+    } catch (err: any) {
+      setError(err.message);
+      setPhase('input');
+      showToast('Failed to analyze job description');
+    }
   };
 
   const handleClose = () => {
