@@ -6,33 +6,42 @@ import { createClient } from '@/lib/supabase/client'
 // ==================== CONSTANTS & HELPERS ====================
 
 // Pipeline stages in order - these are the stages shown in the admin UI
-export const PIPELINE_STAGES = ['New', 'Screening', 'Phone', 'Technical', 'Sent to Client', 'On-site', 'Offer', 'Hired', 'Rejected'] as const;
+// Based on actual interview_status values: new, screening, phone_interview, sent_to_client, final_interview, rejected
+export const PIPELINE_STAGES = ['New', 'Screening', 'Phone', 'Sent to Client', 'Final Interview', 'Hired', 'Rejected'] as const;
 
-function mapStatusToStage(status: string | null): string {
-  // Map database status values to UI stage names
+// Maps interview_status (the real stage) to UI display names
+function mapInterviewStatusToStage(interviewStatus: string | null): string {
   const mapping: Record<string, string> = {
+    // Actual values from DB
     'new': 'New',
-    'pending': 'New', // Pending applications are in New stage
-    'submitted': 'New',
     'screening': 'Screening',
+    'phone_interview': 'Phone',
+    'sent_to_client': 'Sent to Client',
+    'final_interview': 'Final Interview',
+    'hired': 'Hired',
+    'rejected': 'Rejected',
+    // Legacy/alternative values
+    'pending': 'New',
+    'submitted': 'New',
     'phone': 'Phone',
     'phone_screen': 'Phone',
-    'technical': 'Technical',
-    'technical_interview': 'Technical',
-    'sent_to_client': 'Sent to Client',
+    'technical': 'Final Interview',
+    'technical_interview': 'Final Interview',
     'client_review': 'Sent to Client',
-    'onsite': 'On-site',
-    'onsite_interview': 'On-site',
-    'final_interview': 'On-site',
-    'offer': 'Offer',
-    'offer_extended': 'Offer',
-    'hired': 'Hired',
+    'onsite': 'Final Interview',
+    'onsite_interview': 'Final Interview',
+    'offer': 'Hired',
+    'offer_extended': 'Hired',
     'accepted': 'Hired',
-    'rejected': 'Rejected',
     'declined': 'Rejected',
     'withdrawn': 'Rejected',
   }
-  return mapping[status?.toLowerCase() || 'new'] || 'New'
+  return mapping[interviewStatus?.toLowerCase() || 'new'] || 'New'
+}
+
+// Deprecated: use mapInterviewStatusToStage instead
+function mapStatusToStage(status: string | null): string {
+  return mapInterviewStatusToStage(status)
 }
 
 // ==================== SWR FETCHERS ====================
@@ -233,7 +242,7 @@ export function transformOrgsForUI(orgs: any[], agencies: any[]) {
 }
 
 export function transformRolesForUI(roles: any[], applications: any[]) {
-  // Count applications per role, grouped by UI stage (not DB status)
+  // Count applications per role, grouped by UI stage using interview_status (the real pipeline stage)
   const appCountByRole: Record<string, number> = {}
   const appsByStage: Record<string, Record<string, number>> = {}
   
@@ -241,23 +250,23 @@ export function transformRolesForUI(roles: any[], applications: any[]) {
     if (app.role_id) {
       appCountByRole[app.role_id] = (appCountByRole[app.role_id] || 0) + 1
       if (!appsByStage[app.role_id]) {
-        // Initialize all stages to 0
+        // Initialize all stages to 0 - matches PIPELINE_STAGES
         appsByStage[app.role_id] = {
-          'New': 0, 'Screening': 0, 'Phone': 0, 'Technical': 0,
-          'Sent to Client': 0, 'On-site': 0, 'Offer': 0, 'Hired': 0, 'Rejected': 0
+          'New': 0, 'Screening': 0, 'Phone': 0, 'Sent to Client': 0,
+          'Final Interview': 0, 'Hired': 0, 'Rejected': 0
         }
       }
-      // Map the DB status to UI stage and increment
-      const stage = mapStatusToStage(app.status)
+      // Use interview_status (the REAL stage), not status
+      const stage = mapInterviewStatusToStage(app.interview_status)
       appsByStage[app.role_id][stage] = (appsByStage[app.role_id][stage] || 0) + 1
     }
   })
 
   return roles.map((role, index) => {
-    // Get pipeline with all stages initialized
+    // Get pipeline with all stages initialized - matches PIPELINE_STAGES
     const pipeline = appsByStage[role.id] || {
-      'New': 0, 'Screening': 0, 'Phone': 0, 'Technical': 0,
-      'Sent to Client': 0, 'On-site': 0, 'Offer': 0, 'Hired': 0, 'Rejected': 0
+      'New': 0, 'Screening': 0, 'Phone': 0, 'Sent to Client': 0,
+      'Final Interview': 0, 'Hired': 0, 'Rejected': 0
     }
     // Map DB status to UI status: 'active' -> 'open', 'closed' -> 'paused'
     const uiStatus = role.status === 'active' ? 'open' : role.status === 'closed' ? 'paused' : role.status || 'open'
@@ -339,10 +348,10 @@ export function transformCandidatesForUI(applications: any[]) {
       role: app.roles?.title || 'Unknown Role',
       roleId: app.role_id,
       org: app.roles?.company_name || '',
-      // Status - use the actual status from DB
+      // Status - interview_status is the REAL stage in the pipeline
       status: app.status || 'pending',
-      stage: mapStatusToStage(app.status),
-      interviewStatus: app.interview_status,
+      interviewStatus: app.interview_status || 'new',
+      stage: mapInterviewStatusToStage(app.interview_status), // Use interview_status for the actual stage!
       rejectionReason: app.rejection_reason,
       statusEnteredAt: app.status_entered_at,
       screeningCompleted: app.screening_completed,

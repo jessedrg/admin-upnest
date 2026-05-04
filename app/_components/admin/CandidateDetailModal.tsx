@@ -56,8 +56,10 @@ function useCandidateNotes(candidateId: string) {
   return candidateId ? getNotes(candidateId) : [];
 }
 
-const STAGES = ['New','Screening','Phone','Technical','Sent to Client','On-site','Offer','Hired'];
-const VISIBLE_TO_CLIENT = new Set(['Sent to Client','On-site','Offer','Hired']);
+// Pipeline stages matching the actual interview_status values from DB:
+// new, screening, phone_interview, sent_to_client, final_interview, hired, rejected
+const STAGES = ['New','Screening','Phone','Sent to Client','Final Interview','Hired'];
+const VISIBLE_TO_CLIENT = new Set(['Sent to Client','Final Interview','Hired']);
 
 const VIEWER_IDENTITY: Record<string, any> = {
   admin:    { name: 'Mira Holt',      role: 'admin',     avatar: 'M', org: 'upnest',           audience: 'recruiter, client, internal' },

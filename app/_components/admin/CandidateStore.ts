@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react';
 import ADMIN_DATA from './AdminData';
 
-export const STAGES = ['New','Screening','Phone','Technical','Sent to Client','On-site','Offer','Hired','Rejected'];
+// Pipeline stages matching actual interview_status values from DB:
+// new, screening, phone_interview, sent_to_client, final_interview, hired, rejected
+export const STAGES = ['New','Screening','Phone','Sent to Client','Final Interview','Hired','Rejected'];
 
 export const REJECT_REASONS = [
   'Not a fit · skills',
@@ -64,7 +66,7 @@ export const candidateStore = {
   },
 
   visibleToClient(stage: string) {
-    return ['Sent to Client','On-site','Offer','Hired'].includes(stage);
+    return ['Sent to Client','Final Interview','Hired'].includes(stage);
   },
 };
 

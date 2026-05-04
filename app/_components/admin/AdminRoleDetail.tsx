@@ -116,7 +116,7 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
             <div style={{ padding:'48px 20px', textAlign:'center', fontFamily:'var(--serif)', fontStyle:'italic', color:'var(--t-4)' }}>No candidates on this role yet.</div>
           )}
           {roleCandidates.map((c: any, i: number) => {
-            const visible = ['Sent to Client','On-site','Offer','Hired'].includes(c.stage);
+            const visible = ['Sent to Client','Final Interview','Hired'].includes(c.stage);
             const menuOpen = stageMenuFor === c.id;
             return (
               <div key={c.id} style={{ display:'grid', gridTemplateColumns:'60px 1.4fr 130px 1fr 110px 110px 32px', gap:16, padding:'16px 20px', borderBottom: i < roleCandidates.length - 1 ? '1px solid var(--hair)' : 'none', alignItems:'center' }}
