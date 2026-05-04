@@ -1,59 +1,72 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Chip } from './AdminViews';
 import { showToast } from './Toast';
+import { useCandidateNotes, useStatusHistory, addCandidateNote } from '@/lib/hooks/useAdminData';
+import { mutate } from 'swr';
 
-// ---- Note store: persisted in localStorage ----
-const KEY = 'upnest:candidate-notes';
-const subs = new Set<() => void>();
-const readAll = (): Record<string, any[]> => { try { return JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch { return {}; } };
-const writeAll = (obj: any) => { try { localStorage.setItem(KEY, JSON.stringify(obj)); } catch {} for (const fn of subs) try { fn(); } catch {} };
-
-const SEED_NOTES = (id: string): any[] => {
-  const hash = String(id).split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0);
-  const v = Math.abs(hash) % 3;
-  if (v === 0) return [
-    { id:'n1', author:'Jesse Dragstra', role:'recruiter', avatar:'J', org:'Parabol Partners', body:'Submitted after a 45-min intro. Sharp on systems, clearly the lead on the Plaid Link rebuild — owned the migration end-to-end. Comp expectation $245k base, flexible on equity. Recommending fast-track.', ts:'4d ago' },
-    { id:'n2', author:'Catherine Hughes', role:'client', avatar:'C', org:'Ramp', body:'Strong CV. Bit concerned about the gap between Brex and current role — can you ask what happened there?', ts:'3d ago' },
-    { id:'n3', author:'Jesse Dragstra', role:'recruiter', avatar:'J', org:'Parabol Partners', body:'Asked. Took time off to care for a parent, completely fine. Has references from his Brex manager confirming top-tier performer.', ts:'2d ago' },
-    { id:'n4', author:'Mira Holt', role:'admin', avatar:'M', org:'upnest', body:'Internal: cross-checked LinkedIn vs CV — all dates match. Eligible for full bounty.', ts:'1d ago' },
-  ];
-  if (v === 1) return [
-    { id:'n1', author:'Noor Salim', role:'recruiter', avatar:'N', org:'Cedar & Finch', body:'Brought to me through a shared connection at Stripe. Currently leading a 4-person platform team — wants more product surface, less infra. Available within 6 weeks.', ts:'1w ago' },
-    { id:'n2', author:'Jesse Dragstra', role:'admin', avatar:'J', org:'upnest', body:'Spoke to Noor — verified LinkedIn, references warm. Approving the submission.', ts:'5d ago' },
-  ];
-  return [
-    { id:'n1', author:'Ben Ortiz', role:'recruiter', avatar:'B', org:'Independent', body:'Cold email in March, kept the relationship warm. Great fit for the Vercel role specifically — has worked with Next.js since v3.', ts:'2w ago' },
-    { id:'n2', author:'Mira Holt', role:'admin', avatar:'M', org:'upnest', body:"Internal: this is Ben's first submission of the quarter. Watch for completeness.", ts:'1w ago' },
-    { id:'n3', author:'Guillermo Rauch', role:'client', avatar:'G', org:'Vercel', body:"Looks great on paper. Let's push to phone screen this week.", ts:'3d ago' },
-  ];
-};
-
-function getNotes(candidateId: string) {
-  const all = readAll();
-  if (all[candidateId]) return all[candidateId];
-  const seed = SEED_NOTES(candidateId);
-  all[candidateId] = seed;
-  writeAll(all);
-  return seed;
+// Helper to format time ago
+function formatTimeAgo(date: string | Date): string {
+  if (!date) return '';
+  const now = new Date();
+  const d = new Date(date);
+  const diffMs = now.getTime() - d.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+  
+  if (diffMins < 1) return 'just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffWeeks < 4) return `${diffWeeks}w ago`;
+  return `${diffMonths}mo ago`;
 }
 
-function addNote(candidateId: string, note: any) {
-  const all = readAll();
-  const list = all[candidateId] || [];
-  list.push({ id: 'n-' + Date.now(), ...note, ts: 'just now' });
-  all[candidateId] = list;
-  writeAll(all);
+// Transform DB notes to UI format
+function transformNotesToUI(notes: any[]): any[] {
+  return notes.map(n => {
+    const user = n.user_profiles;
+    const name = user?.full_name || user?.email?.split('@')[0] || 'Unknown';
+    const role = user?.role === 'platform_admin' ? 'admin' : 
+                 user?.role === 'client' ? 'client' : 'recruiter';
+    return {
+      id: n.id,
+      author: name,
+      role,
+      avatar: name.charAt(0).toUpperCase(),
+      org: role === 'admin' ? 'upnest' : (user?.agency_id ? 'Agency' : 'Independent'),
+      body: n.content,
+      ts: formatTimeAgo(n.created_at),
+      noteType: n.note_type,
+      createdAt: n.created_at,
+    };
+  });
 }
 
-function useCandidateNotes(candidateId: string) {
-  const [, setTick] = useState(0);
-  useEffect(() => {
-    const fn = () => setTick(t => t + 1);
-    subs.add(fn);
-    return () => { subs.delete(fn); };
-  }, []);
-  return candidateId ? getNotes(candidateId) : [];
+// Transform status history to activity log
+function transformHistoryToActivity(history: any[], candidate: any): any[] {
+  const statusLabels: Record<string, string> = {
+    'new': 'submitted candidate',
+    'screening': 'moved to Screening',
+    'phone_interview': 'moved to Phone',
+    'sent_to_client': 'sent to client',
+    'final_interview': 'moved to Final Interview',
+    'hired': 'marked as Hired',
+    'rejected': 'marked as Rejected',
+  };
+  
+  return history.map(h => ({
+    id: h.id,
+    ts: formatTimeAgo(h.entered_at),
+    actor: candidate?.sourcedBy || 'System',
+    verb: statusLabels[h.status] || `status changed to ${h.status}`,
+    detail: h.exited_at ? `Duration: ${formatTimeAgo(h.exited_at)}` : 'Current stage',
+    status: h.status,
+    enteredAt: h.entered_at,
+  }));
 }
 
 // Pipeline stages matching the actual interview_status values from DB:
@@ -331,9 +344,30 @@ function OverviewTab({ c, recruiterMeta, orgMeta }: any) {
 }
 
 // ---- Notes Tab ----
-function NotesTab({ notes, draft, setDraft, onAdd, me }: any) {
+function NotesTab({ notes, draft, setDraft, onAdd, me, isLoading }: any) {
   const getTone = (role: string) => role === 'admin' ? 'var(--ink)' : role === 'client' ? 'var(--plum-700)' : '#B88858';
   const getBg = (role: string) => role === 'admin' ? 'var(--ink)' : role === 'client' ? 'var(--plum-700)' : 'linear-gradient(135deg, #F3E6CE, #B88858)';
+
+  if (isLoading) {
+    return (
+      <div style={{ maxWidth: 780 }}>
+        <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 12 }}>
+          NOTES THREAD · LOADING...
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} style={{ display: 'flex', gap: 14, padding: '18px 0', borderBottom: '1px solid var(--hair)' }}>
+              <div style={{ width: 36, height: 36, borderRadius: 999, background: 'var(--paper-2)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ height: 16, width: 150, background: 'var(--paper-2)', borderRadius: 4, marginBottom: 8, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                <div style={{ height: 40, width: '100%', background: 'var(--paper-2)', borderRadius: 4, animation: 'pulse 1.5s ease-in-out infinite' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 780 }}>
@@ -418,34 +452,53 @@ function NotesTab({ notes, draft, setDraft, onAdd, me }: any) {
 }
 
 // ---- History Tab ----
-function HistoryTab({ c }: any) {
-  const log = [
-    { ts: '2 mo ago', actor: 'Jesse Dragstra', verb: 'submitted candidate', detail: 'Initial profile + LinkedIn' },
-    { ts: '7 wk ago', actor: 'Mira Holt', verb: 'admin approved', detail: 'Profile complete · LinkedIn verified' },
-    { ts: '6 wk ago', actor: 'Jesse Dragstra', verb: 'moved to Screening', detail: 'Spoke for 30 min, sharp' },
-    { ts: '5 wk ago', actor: 'Jesse Dragstra', verb: 'moved to Phone', detail: 'Phone screen scheduled' },
-    { ts: '4 wk ago', actor: 'Catherine Hughes', verb: 'reviewed profile', detail: 'From client side' },
-    { ts: '3 wk ago', actor: 'Jesse Dragstra', verb: 'moved to Technical', detail: 'Take-home assigned' },
-    VISIBLE_TO_CLIENT.has(c.stage) ? { ts: '2 wk ago', actor: 'Jesse Dragstra', verb: 'sent to client', detail: 'Visible to hiring org' } : null,
-  ].filter(Boolean) as any[];
+function HistoryTab({ activity, isLoading }: { activity: any[], isLoading?: boolean }) {
+  if (isLoading) {
+    return (
+      <div style={{ maxWidth: 720 }}>
+        <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 18 }}>ACTIVITY · LOADING...</div>
+        <div style={{ position: 'relative', paddingLeft: 30 }}>
+          {[1, 2, 3].map(i => (
+            <div key={i} style={{ position: 'relative', padding: '10px 0 22px' }}>
+              <div style={{ height: 12, width: 60, background: 'var(--paper-2)', borderRadius: 4, marginBottom: 8, animation: 'pulse 1.5s ease-in-out infinite' }} />
+              <div style={{ height: 18, width: 200, background: 'var(--paper-2)', borderRadius: 4, marginBottom: 6, animation: 'pulse 1.5s ease-in-out infinite' }} />
+              <div style={{ height: 14, width: 150, background: 'var(--paper-2)', borderRadius: 4, animation: 'pulse 1.5s ease-in-out infinite' }} />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (!activity.length) {
+    return (
+      <div style={{ maxWidth: 720 }}>
+        <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 18 }}>ACTIVITY · 0 ENTRIES</div>
+        <p style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 14, color: 'var(--t-4)' }}>
+          No activity recorded yet. Status changes will appear here as the candidate progresses through the pipeline.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 720 }}>
-      <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 18 }}>ACTIVITY · OLDEST FIRST</div>
+      <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 18 }}>ACTIVITY · {activity.length} ENTRIES</div>
       <div style={{ position: 'relative', paddingLeft: 30 }}>
         <div style={{ position: 'absolute', left: 9, top: 8, bottom: 8, width: 1, background: 'var(--hair-strong)' }} />
-        {log.map((e, i) => (
-          <div key={i} style={{ position: 'relative', padding: '10px 0 22px' }}>
+        {activity.map((e: any, i: number) => (
+          <div key={e.id || i} style={{ position: 'relative', padding: '10px 0 22px' }}>
             <div style={{
               position: 'absolute', left: -26, top: 14,
               width: 11, height: 11, borderRadius: 999,
-              background: 'var(--paper)', border: '2px solid var(--ink)',
+              background: e.status === 'hired' ? 'var(--ok)' : e.status === 'rejected' ? 'var(--err)' : 'var(--paper)',
+              border: `2px solid ${e.status === 'hired' ? 'var(--ok)' : e.status === 'rejected' ? 'var(--err)' : 'var(--ink)'}`,
             }} />
-            <div className="mono" style={{ fontSize: 9, letterSpacing: '.18em', color: 'var(--t-4)' }}>{e.ts.toUpperCase()}</div>
+            <div className="mono" style={{ fontSize: 9, letterSpacing: '.18em', color: 'var(--t-4)' }}>{e.ts?.toUpperCase()}</div>
             <div style={{ fontFamily: 'var(--serif)', fontSize: 16, marginTop: 4, letterSpacing: '-0.005em' }}>
               <em>{e.actor}</em> <span style={{ color: 'var(--t-3)' }}>· {e.verb}</span>
             </div>
-            <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 14, color: 'var(--t-3)', marginTop: 3 }}>{e.detail}</div>
+            {e.detail && <div style={{ fontFamily: 'var(--serif)', fontStyle: 'italic', fontSize: 14, color: 'var(--t-3)', marginTop: 3 }}>{e.detail}</div>}
           </div>
         ))}
       </div>
@@ -456,9 +509,18 @@ function HistoryTab({ c }: any) {
 // ---- Main Modal ----
 export function CandidateDetailModal({ candidate, viewer = 'admin', onClose }: { candidate: any, viewer?: string, onClose: () => void }) {
   const c = candidate;
-  const notes = useCandidateNotes(c?.id);
+  
+  // Fetch real data from Supabase
+  const { data: notesData, isLoading: notesLoading, mutate: mutateNotes } = useCandidateNotes(c?.id);
+  const { data: historyData, isLoading: historyLoading } = useStatusHistory(c?.id);
+  
+  // Transform to UI format
+  const notes = notesData ? transformNotesToUI(notesData) : [];
+  const activity = historyData ? transformHistoryToActivity(historyData, c) : [];
+  
   const [draft, setDraft] = useState('');
   const [tab, setTab] = useState<'overview' | 'notes' | 'history'>('overview');
+  const [isAddingNote, setIsAddingNote] = useState(false);
 
   if (!c) return null;
 
@@ -466,14 +528,22 @@ export function CandidateDetailModal({ candidate, viewer = 'admin', onClose }: {
   const stageIdx = STAGES.indexOf(c.stage);
   const visibleToClient = VISIBLE_TO_CLIENT.has(c.stage);
 
-  const handleAddNote = () => {
-    if (!draft.trim()) return;
-    addNote(c.id, {
-      author: me.name, role: me.role, avatar: me.avatar, org: me.org,
-      body: draft.trim(),
-    });
-    setDraft('');
-    showToast('Note added');
+  const handleAddNote = async () => {
+    if (!draft.trim() || isAddingNote) return;
+    setIsAddingNote(true);
+    try {
+      await addCandidateNote(c.id, draft.trim(), 'general');
+      setDraft('');
+      // Refresh notes
+      mutateNotes();
+      mutate(`candidate-notes-${c.id}`);
+      showToast('Note added');
+    } catch (err) {
+      console.error('[v0] Error adding note:', err);
+      showToast('Failed to add note');
+    } finally {
+      setIsAddingNote(false);
+    }
   };
 
   const handleAdvance = () => {
@@ -596,8 +666,8 @@ export function CandidateDetailModal({ candidate, viewer = 'admin', onClose }: {
         <div style={{ padding: '0 36px', borderBottom: '1px solid var(--hair)', display: 'flex', gap: 24 }}>
           {[
             { k: 'overview', l: 'Overview' },
-            { k: 'notes', l: `Notes · ${notes.length}` },
-            { k: 'history', l: 'Activity' },
+            { k: 'notes', l: notesLoading ? 'Notes · ...' : `Notes · ${notes.length}` },
+            { k: 'history', l: historyLoading ? 'Activity · ...' : `Activity · ${activity.length}` },
           ].map(t => (
             <button key={t.k} onClick={() => setTab(t.k as any)} style={{
               appearance: 'none', border: 0, background: 'transparent', cursor: 'pointer',
@@ -615,8 +685,8 @@ export function CandidateDetailModal({ candidate, viewer = 'admin', onClose }: {
         {/* BODY */}
         <div style={{ flex: 1, overflow: 'auto', padding: '28px 36px' }}>
           {tab === 'overview' && <OverviewTab c={c} recruiterMeta={null} orgMeta={null} />}
-          {tab === 'notes' && <NotesTab notes={notes} draft={draft} setDraft={setDraft} onAdd={handleAddNote} me={me} />}
-          {tab === 'history' && <HistoryTab c={c} />}
+          {tab === 'notes' && <NotesTab notes={notes} draft={draft} setDraft={setDraft} onAdd={handleAddNote} me={me} isLoading={notesLoading} />}
+          {tab === 'history' && <HistoryTab activity={activity} isLoading={historyLoading} />}
         </div>
 
         {/* FOOTER ACTIONS */}

@@ -200,6 +200,75 @@ export function useAdminData() {
   })
 }
 
+// Fetch candidate notes for a specific application
+async function fetchCandidateNotes(applicationId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('candidate_notes')
+    .select('*, user_profiles:created_by(id, full_name, email, profile_picture_url, role, agency_id)')
+    .eq('application_id', applicationId)
+    .order('created_at', { ascending: true })
+  if (error) {
+    console.error('[v0] Error fetching candidate_notes:', error)
+    return []
+  }
+  return data || []
+}
+
+// Fetch status history for a specific application
+async function fetchStatusHistory(applicationId: string) {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('status_history')
+    .select('*')
+    .eq('application_id', applicationId)
+    .order('entered_at', { ascending: true })
+  if (error) {
+    console.error('[v0] Error fetching status_history:', error)
+    return []
+  }
+  return data || []
+}
+
+export function useCandidateNotes(applicationId: string | null) {
+  return useSWR(
+    applicationId ? `candidate-notes-${applicationId}` : null,
+    () => applicationId ? fetchCandidateNotes(applicationId) : [],
+    { revalidateOnFocus: false, dedupingInterval: 10000 }
+  )
+}
+
+export function useStatusHistory(applicationId: string | null) {
+  return useSWR(
+    applicationId ? `status-history-${applicationId}` : null,
+    () => applicationId ? fetchStatusHistory(applicationId) : [],
+    { revalidateOnFocus: false, dedupingInterval: 10000 }
+  )
+}
+
+// Add a note to a candidate
+export async function addCandidateNote(applicationId: string, content: string, noteType: string = 'general') {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  const { data, error } = await supabase
+    .from('candidate_notes')
+    .insert({
+      application_id: applicationId,
+      content,
+      note_type: noteType,
+      created_by: user?.id,
+    })
+    .select()
+    .single()
+  
+  if (error) {
+    console.error('[v0] Error adding note:', error)
+    throw error
+  }
+  return data
+}
+
 // ==================== TRANSFORMERS ====================
 // Transform Supabase data to match the expected UI format
 
