@@ -43,7 +43,8 @@ function OrgLogo({ org, size = 56 }: { org: any, size?: number }) {
   );
 }
 
-function OrgDrawer({ org, onClose, roles = [], candidates = [] }: any) {
+function OrgDrawer({ org, onClose, roles = [], candidates = [], onDelete }: any) {
+  const [showDangerZone, setShowDangerZone] = useState(false);
   const orgRoles = roles.filter((r: any) => r.org === org.name);
   const orgCandidates = candidates.filter((c: any) => c.org === org.name);
 
@@ -125,12 +126,133 @@ function OrgDrawer({ org, onClose, roles = [], candidates = [] }: any) {
               </div>
             </div>
           )}
+
+          {/* Danger Zone */}
+          <div style={{ marginTop:32, borderTop:'1px solid var(--hair)', paddingTop:24 }}>
+            <button
+              onClick={() => setShowDangerZone(!showDangerZone)}
+              className="mono"
+              style={{ 
+                appearance:'none', border:0, background:'transparent', cursor:'pointer',
+                fontSize:10, letterSpacing:'.14em', color:'var(--err)', 
+                display:'flex', alignItems:'center', gap:6
+              }}
+            >
+              <span style={{ transform: showDangerZone ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform .15s' }}>&#9654;</span>
+              DANGER ZONE
+            </button>
+            {showDangerZone && (
+              <div style={{ marginTop:16, padding:16, background:'rgba(220,53,69,.04)', border:'1px solid rgba(220,53,69,.15)', borderRadius:8 }}>
+                <div style={{ fontFamily:'var(--serif)', fontSize:15, fontStyle:'italic', marginBottom:8 }}>Delete this organization</div>
+                <div style={{ fontSize:13, color:'var(--t-3)', marginBottom:12, lineHeight:1.5 }}>
+                  Once deleted, all data associated with {org.name} will be permanently removed. This action cannot be undone.
+                </div>
+                <button
+                  onClick={() => onDelete && onDelete(org)}
+                  className="btn"
+                  style={{ 
+                    padding:'10px 16px', background:'var(--err)', color:'#fff', 
+                    border:0, borderRadius:6, cursor:'pointer',
+                    fontFamily:'var(--mono)', fontSize:11, letterSpacing:'.06em'
+                  }}
+                >
+                  Delete organization
+                </button>
+              </div>
+            )}
+          </div>
         </div>
         <div style={{ padding:'16px 32px', borderTop:'1px solid var(--hair)', display:'flex', justifyContent:'flex-end', gap:10 }}>
           <button onClick={onClose} className="btn btn-ghost" style={{ padding:'10px 14px' }}>Close</button>
         </div>
       </div>
     </>
+  );
+}
+
+function DeleteConfirmModal({ org, onClose, onDelete }: { org: any, onClose: () => void, onDelete: (org: any) => void }) {
+  const [confirmText, setConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const canDelete = confirmText === org.name;
+
+  const handleDelete = async () => {
+    if (!canDelete) return;
+    setIsDeleting(true);
+    await onDelete(org);
+    setIsDeleting(false);
+  };
+
+  return (
+    <div onClick={onClose} style={{ position:'fixed', inset:0, zIndex:300, background:'rgba(20,10,10,.6)', backdropFilter:'blur(6px)', display:'flex', alignItems:'center', justifyContent:'center', padding:20 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width:480, maxWidth:'100%', background:'var(--paper)', borderRadius:12, overflow:'hidden', boxShadow:'0 30px 80px rgba(0,0,0,.35)' }}>
+        {/* Header */}
+        <div style={{ padding:'24px 28px', background:'#fff', borderBottom:'1px solid var(--hair)' }}>
+          <div style={{ display:'flex', gap:12, alignItems:'center', marginBottom:16 }}>
+            <div style={{ width:40, height:40, borderRadius:10, background:'var(--err)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3,6 5,6 21,6"/>
+                <path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2"/>
+                <line x1="10" y1="11" x2="10" y2="17"/>
+                <line x1="14" y1="11" x2="14" y2="17"/>
+              </svg>
+            </div>
+            <div>
+              <div className="serif" style={{ fontSize:22, fontStyle:'italic', letterSpacing:'-0.02em', color:'var(--err)' }}>Delete Organization</div>
+              <div className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--t-4)' }}>DANGER ZONE</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding:'24px 28px' }}>
+          <div style={{ padding:16, background:'rgba(220,53,69,.08)', border:'1px solid rgba(220,53,69,.2)', borderRadius:8, marginBottom:20 }}>
+            <div style={{ fontFamily:'var(--serif)', fontSize:15, fontStyle:'italic', color:'var(--err)', marginBottom:8 }}>
+              This action cannot be undone.
+            </div>
+            <div style={{ fontSize:13, color:'var(--t-2)', lineHeight:1.5 }}>
+              Deleting <strong>{org.name}</strong> will permanently remove all associated data including roles, applications, and history from the platform.
+            </div>
+          </div>
+
+          <div style={{ marginBottom:8 }}>
+            <label className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--t-4)', display:'block', marginBottom:8 }}>
+              TYPE <strong style={{ color:'var(--ink)' }}>{org.name}</strong> TO CONFIRM
+            </label>
+            <input
+              type="text"
+              value={confirmText}
+              onChange={e => setConfirmText(e.target.value)}
+              placeholder={org.name}
+              style={{
+                width:'100%', padding:'12px 14px', fontSize:14,
+                border: confirmText && !canDelete ? '1px solid var(--err)' : '1px solid var(--hair)',
+                borderRadius:6, background:'#fff',
+                fontFamily:'var(--mono)', letterSpacing:'.02em'
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding:'16px 24px', borderTop:'1px solid var(--hair)', display:'flex', gap:10, justifyContent:'flex-end', background:'#fff' }}>
+          <button onClick={onClose} className="btn btn-ghost" style={{ padding:'10px 16px' }}>Cancel</button>
+          <button
+            onClick={handleDelete}
+            disabled={!canDelete || isDeleting}
+            style={{
+              padding:'10px 20px', borderRadius:6, border:0,
+              background: canDelete ? 'var(--err)' : 'var(--t-5)',
+              color:'#fff', fontFamily:'var(--mono)', fontSize:11, letterSpacing:'.08em',
+              cursor: canDelete ? 'pointer' : 'not-allowed',
+              opacity: isDeleting ? 0.7 : 1,
+              transition:'all .15s ease'
+            }}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete permanently'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -186,6 +308,7 @@ export function AdminOrgs() {
   const [tab, setTab] = useState('all');
   const [open, setOpen] = useState<any>(null);
   const [approving, setApproving] = useState<any>(null);
+  const [deleting, setDeleting] = useState<any>(null);
 
   // Transform data from Supabase
   const allOrgs = transformOrgsForUI(orgsData || [], agenciesData || []);
@@ -202,6 +325,31 @@ export function AdminOrgs() {
   const handleReject = async (org: any) => {
     showToast(`Rejected · ${org.name}`);
     setApproving(null);
+  };
+
+  const handleDeleteClick = (org: any) => {
+    setOpen(null);
+    setDeleting(org);
+  };
+
+  const handleDelete = async (org: any) => {
+    try {
+      const supabase = (await import('@/lib/supabase/client')).createClient();
+      const { error } = await supabase
+        .from('client_organizations')
+        .delete()
+        .eq('id', org.id);
+      
+      if (error) throw error;
+      
+      showToast(`Deleted · ${org.name}`, { kind: 'ok' } as any);
+      setDeleting(null);
+      // Trigger SWR revalidation
+      window.location.reload();
+    } catch (err) {
+      console.error('[v0] Error deleting org:', err);
+      showToast(`Failed to delete ${org.name}`);
+    }
   };
 
   // Filter organizations by status
@@ -356,8 +504,9 @@ export function AdminOrgs() {
         </>
       )}
 
-      {open && <OrgDrawer org={open} onClose={() => setOpen(null)} roles={roles} candidates={candidates} />}
+      {open && <OrgDrawer org={open} onClose={() => setOpen(null)} roles={roles} candidates={candidates} onDelete={handleDeleteClick} />}
       {approving && <ApproveModal org={approving} onClose={() => setApproving(null)} onApprove={handleApprove} onReject={handleReject} />}
+      {deleting && <DeleteConfirmModal org={deleting} onClose={() => setDeleting(null)} onDelete={handleDelete} />}
     </div>
   );
 }
