@@ -1,6 +1,6 @@
 'use client';
-import React, { useState } from 'react';
-import { useOrganizations, useAgencies, useRoles, useApplications, transformOrgsForUI, transformRolesForUI, transformCandidatesForUI } from '@/lib/hooks/useAdminData';
+import React, { useState, useMemo } from 'react';
+import { useOrganizations, useAgencies, useRoles, useApplications, useRecruiters, transformOrgsForUI, transformRolesForUI, transformCandidatesForUI } from '@/lib/hooks/useAdminData';
 import { KpiTile as BKpi, SectionTitle as BSec, Hairline as BHair, Chip as BChip, HealthDot as BHD, SkeletonStats, SkeletonTable } from './AdminViews';
 import { showToast } from './Toast';
 
@@ -304,17 +304,25 @@ export function AdminOrgs() {
   const { data: agenciesData, isLoading: agenciesLoading } = useAgencies();
   const { data: rolesData, isLoading: rolesLoading } = useRoles();
   const { data: applicationsData, isLoading: appsLoading } = useApplications();
+  const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
   
   const [tab, setTab] = useState('all');
   const [open, setOpen] = useState<any>(null);
   const [approving, setApproving] = useState<any>(null);
   const [deleting, setDeleting] = useState<any>(null);
 
+  // Create recruiters map for fast lookup
+  const recruitersMap = useMemo(() => {
+    const map = new Map<string, any>();
+    (recruitersData || []).forEach((r: any) => map.set(r.id, r));
+    return map;
+  }, [recruitersData]);
+
   // Transform data from Supabase
   const allOrgs = transformOrgsForUI(orgsData || [], agenciesData || []);
   const roles = transformRolesForUI(rolesData || [], applicationsData || []);
-  const candidates = transformCandidatesForUI(applicationsData || []);
-  const isLoading = orgsLoading || agenciesLoading || rolesLoading || appsLoading;
+  const candidates = transformCandidatesForUI(applicationsData || [], recruitersMap);
+  const isLoading = orgsLoading || agenciesLoading || rolesLoading || appsLoading || recruitersLoading;
 
   // Handle approve/reject - TODO: implement Supabase update
   const handleApprove = async (org: any) => {

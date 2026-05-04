@@ -146,9 +146,15 @@ export function AdminOverview({ onNavigate }: any) {
   const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
 
   // Transform data
+  const recruitersMap = React.useMemo(() => {
+    const map = new Map<string, any>();
+    (recruitersData || []).forEach((r: any) => map.set(r.id, r));
+    return map;
+  }, [recruitersData]);
+  
   const orgs = transformOrgsForUI(orgsData || [], agenciesData || []);
   const roles = transformRolesForUI(rolesData || [], applicationsData || []);
-  const candidates = transformCandidatesForUI(applicationsData || []);
+  const candidates = transformCandidatesForUI(applicationsData || [], recruitersMap);
   const recruiters = transformRecruitersForUI(recruitersData || [], applicationsData || []);
   const isLoading = orgsLoading || agenciesLoading || rolesLoading || appsLoading || recruitersLoading;
 

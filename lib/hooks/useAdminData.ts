@@ -303,7 +303,7 @@ export function transformRolesForUI(roles: any[], applications: any[]) {
   })
 }
 
-export function transformCandidatesForUI(applications: any[]) {
+export function transformCandidatesForUI(applications: any[], recruitersMap?: Map<string, any>) {
   return applications.map((app, index) => {
     const name = app.candidate_name || app.linkedin_data?.full_name || 'Unknown'
     const nameParts = name.split(' ')
@@ -322,6 +322,10 @@ export function transformCandidatesForUI(applications: any[]) {
       const match = duration.match(/(\d+)\s*yr/)
       return years + (match ? parseInt(match[1]) : 0)
     }, 0) || 0
+
+    // Get recruiter name from map if available
+    const recruiter = recruitersMap?.get(app.sourced_by)
+    const recruiterName = recruiter?.full_name || recruiter?.email?.split('@')[0] || null
 
     return {
       id: app.id,
@@ -356,8 +360,9 @@ export function transformCandidatesForUI(applications: any[]) {
       statusEnteredAt: app.status_entered_at,
       screeningCompleted: app.screening_completed,
       // Source info
-      source: app.sourced_by ? 'Recruiter' : 'Direct apply',
+      source: app.sourced_by ? 'Recruiter' : 'Direct',
       sourcedBy: app.sourced_by,
+      recruiterName, // Now includes the resolved recruiter name
       submitted: formatTimeAgo(app.created_at),
       submittedAt: app.created_at,
       updatedAt: app.updated_at,

@@ -1,6 +1,6 @@
 'use client';
-import React, { useState } from 'react';
-import { useApplications, transformCandidatesForUI, PIPELINE_STAGES } from '@/lib/hooks/useAdminData';
+import React, { useState, useMemo } from 'react';
+import { useApplications, useRecruiters, transformCandidatesForUI, PIPELINE_STAGES } from '@/lib/hooks/useAdminData';
 import { Chip as AChip, Skeleton, SkeletonTable } from './AdminViews';
 import { showToast } from './Toast';
 import { useCandidateStore } from './CandidateStore';
@@ -100,8 +100,22 @@ function CandidateAvatar({ c, size = 36 }: { c: any; size?: number }) {
 }
 
 export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
-  const { data: applicationsData, isLoading } = useApplications();
-  const allCandidates = transformCandidatesForUI(applicationsData || []);
+  const { data: applicationsData, isLoading: appsLoading } = useApplications();
+  const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
+  
+  // Create a map of recruiter ID -> recruiter data for fast lookup
+  const recruitersMap = useMemo(() => {
+    const map = new Map<string, any>();
+    (recruitersData || []).forEach((r: any) => map.set(r.id, r));
+    return map;
+  }, [recruitersData]);
+  
+  const allCandidates = useMemo(() => 
+    transformCandidatesForUI(applicationsData || [], recruitersMap),
+    [applicationsData, recruitersMap]
+  );
+  
+  const isLoading = appsLoading || recruitersLoading;
   
   const r = role;
   const [tab, setTab] = useState<'candidates'|'brief'|'activity'>('candidates');
@@ -312,7 +326,7 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
                     </>
                   )}
                 </div>
-                <span style={{ fontFamily:'var(--serif)', fontSize:14, fontStyle:'italic', color:'var(--t-2)' }}>{c.sourcedBy || '—'}</span>
+                <span style={{ fontFamily:'var(--serif)', fontSize:14, fontStyle:'italic', color:'var(--t-2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{c.recruiterName || '—'}</span>
                 <span className="mono" style={{ fontSize:10, letterSpacing:'.12em', color:'var(--t-4)' }}>{c.submitted?.toUpperCase()}</span>
                 <div>
                   {!visible && c.stage !== 'Rejected' ? (

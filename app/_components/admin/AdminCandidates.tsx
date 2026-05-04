@@ -1,15 +1,28 @@
 'use client';
-import React, { useState } from 'react';
-import { useApplications, transformCandidatesForUI } from '@/lib/hooks/useAdminData';
+import React, { useState, useMemo } from 'react';
+import { useApplications, useRecruiters, transformCandidatesForUI } from '@/lib/hooks/useAdminData';
 import Icons from './Icons';
 import { KpiTile as BKpi, SkeletonStats, SkeletonTable } from './AdminViews';
 import { useCandidateStore } from './CandidateStore';
 
-const STAGES = ['New', 'Screening', 'Phone', 'Technical', 'Sent to Client', 'On-site', 'Offer', 'Hired', 'Rejected'];
+const STAGES = ['New', 'Screening', 'Phone', 'Sent to Client', 'Final Interview', 'Hired', 'Rejected'];
 
 export function AdminCandidates({ onCandidate }: any) {
-  const { data: applicationsData, isLoading } = useApplications();
-  const allCandidates = transformCandidatesForUI(applicationsData || []);
+  const { data: applicationsData, isLoading: appsLoading } = useApplications();
+  const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
+  
+  const recruitersMap = useMemo(() => {
+    const map = new Map<string, any>();
+    (recruitersData || []).forEach((r: any) => map.set(r.id, r));
+    return map;
+  }, [recruitersData]);
+  
+  const allCandidates = useMemo(() => 
+    transformCandidatesForUI(applicationsData || [], recruitersMap),
+    [applicationsData, recruitersMap]
+  );
+  
+  const isLoading = appsLoading || recruitersLoading;
   
   const [q, setQ] = useState('');
   const [stage, setStage] = useState('all');
