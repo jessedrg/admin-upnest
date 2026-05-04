@@ -103,6 +103,10 @@ function KpiTile({ label, value, sub, trend }: { label: string; value: string | 
 
 // Kanban Card component with drag support
 function KanbanCard({ c, onClick, onDragStart }: { c: any; onClick?: () => void; onDragStart?: (e: React.DragEvent) => void }) {
+  // Use title or about for the quote, not headline (which can be very long)
+  const quote = c.title || c.about || '';
+  const truncatedQuote = quote.length > 50 ? quote.substring(0, 50) + '...' : quote;
+  
   return (
     <div 
       draggable
@@ -115,7 +119,8 @@ function KanbanCard({ c, onClick, onDragStart }: { c: any; onClick?: () => void;
         background: '#fff', 
         marginBottom: 8,
         cursor: 'grab',
-        transition: 'box-shadow .15s, border-color .15s, opacity .15s'
+        transition: 'box-shadow .15s, border-color .15s, opacity .15s',
+        overflow: 'hidden'
       }}
       onMouseEnter={e => {
         e.currentTarget.style.borderColor = 'var(--hair-strong)';
@@ -128,17 +133,44 @@ function KanbanCard({ c, onClick, onDragStart }: { c: any; onClick?: () => void;
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <CandidateAvatar c={c} size={32} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: 'var(--serif)', fontSize: 14, fontStyle: 'italic', letterSpacing: '-0.01em' }}>{c.name}</div>
-          <div className="mono" style={{ fontSize: 9, letterSpacing: '.12em', color: 'var(--t-4)', marginTop: 2 }}>
+        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+          <div style={{ 
+            fontFamily: 'var(--serif)', 
+            fontSize: 14, 
+            fontStyle: 'italic', 
+            letterSpacing: '-0.01em',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}>{c.name}</div>
+          <div className="mono" style={{ 
+            fontSize: 9, 
+            letterSpacing: '.12em', 
+            color: 'var(--t-4)', 
+            marginTop: 2,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap'
+          }}>
             {c.current ? c.current.toUpperCase() : ''} {c.years > 0 && `· ${c.years}Y`}
           </div>
         </div>
-        <span className="mono" style={{ fontSize: 10, color: 'var(--t-5)' }}>⋯</span>
+        <span className="mono" style={{ fontSize: 10, color: 'var(--t-5)', flexShrink: 0 }}>⋯</span>
       </div>
-      {c.headline && (
-        <div className="serif" style={{ fontSize: 12, fontStyle: 'italic', color: 'var(--t-3)', marginTop: 10, lineHeight: 1.4 }}>
-          &quot;{c.headline.length > 60 ? c.headline.substring(0, 60) + '...' : c.headline}&quot;
+      {truncatedQuote && (
+        <div className="serif" style={{ 
+          fontSize: 12, 
+          fontStyle: 'italic', 
+          color: 'var(--t-3)', 
+          marginTop: 10, 
+          lineHeight: 1.4,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical'
+        }}>
+          &quot;{truncatedQuote}&quot;
         </div>
       )}
     </div>
