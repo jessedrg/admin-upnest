@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Chip } from './AdminViews';
 import { showToast } from './Toast';
 import { useCandidateNotes, useStatusHistory, addCandidateNote } from '@/lib/hooks/useAdminData';
