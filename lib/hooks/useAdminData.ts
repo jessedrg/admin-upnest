@@ -296,41 +296,90 @@ export function transformRolesForUI(roles: any[], applications: any[]) {
 
 export function transformCandidatesForUI(applications: any[]) {
   return applications.map((app, index) => {
-    const name = app.candidate_name || 'Unknown'
+    const name = app.candidate_name || app.linkedin_data?.full_name || 'Unknown'
     const nameParts = name.split(' ')
     const initials = nameParts.length >= 2 
       ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
       : name.substring(0, 2).toUpperCase()
+
+    // Extract data from linkedin_data if available
+    const linkedin = app.linkedin_data || {}
+    const currentJob = linkedin.experience?.[0] || {}
+    const education = linkedin.education?.[0] || {}
+    
+    // Calculate years of experience from linkedin data
+    const totalYears = linkedin.experience?.reduce((years: number, exp: any) => {
+      const duration = exp.duration || ''
+      const match = duration.match(/(\d+)\s*yr/)
+      return years + (match ? parseInt(match[1]) : 0)
+    }, 0) || 0
 
     return {
       id: app.id,
       num: `C-${String(index + 1).padStart(5, '0')}`,
       name,
       initials,
-      title: '', // Not in applications schema
-      current: '', // Not in applications schema
+      // From LinkedIn data
+      title: currentJob.title || linkedin.job_title || linkedin.headline || '',
+      headline: linkedin.headline || '',
+      current: currentJob.company || linkedin.company || '',
+      currentCompanyLogo: linkedin.company_logo_url || currentJob.company_logo_url || '',
+      about: linkedin.about || '',
+      location: linkedin.location || linkedin.city || '',
+      school: education.school || linkedin.school || '',
+      degree: education.degree || '',
+      fieldOfStudy: education.field_of_study || '',
+      // Experience & education arrays
+      experience: linkedin.experience || [],
+      education: linkedin.education || [],
+      skills: linkedin.skills || [],
+      certifications: linkedin.certifications || [],
+      languages: linkedin.languages || [],
+      // Role info
       role: app.roles?.title || 'Unknown Role',
       roleId: app.role_id,
       org: app.roles?.company_name || '',
+      // Status - use the actual status from DB
+      status: app.status || 'pending',
       stage: mapStatusToStage(app.status),
+      interviewStatus: app.interview_status,
+      rejectionReason: app.rejection_reason,
+      statusEnteredAt: app.status_entered_at,
+      screeningCompleted: app.screening_completed,
+      // Source info
       source: app.sourced_by ? 'Recruiter' : 'Direct apply',
+      sourcedBy: app.sourced_by,
       submitted: formatTimeAgo(app.created_at),
-      recruiter: '', // Would need join with user_profiles
-      location: '', // Not in applications
-      salary: '', // Not in applications
-      years: 0,
-      quote: app.cover_letter?.substring(0, 100) || '',
+      submittedAt: app.created_at,
+      updatedAt: app.updated_at,
+      // Years of experience
+      years: totalYears,
+      // Contact & links
+      email: app.candidate_email,
+      phone: app.candidate_phone || linkedin.phone || '',
+      linkedinUrl: app.linkedin_url || linkedin.linkedin_url || '',
+      linkedinProfileId: app.linkedin_profile_id,
+      // Documents
+      resumeUrl: app.resume_url || app.cv_url,
+      coverLetter: app.cover_letter,
+      answers: app.answers,
+      // Profile image - prefer from app, fallback to linkedin_data
+      profileImage: app.profile_image_url || linkedin.profile_image_url || '',
+      // AI analysis
+      fitScore: app.fit_score,
+      matchingSkills: app.matching_skills || [],
+      missingSkills: app.missing_skills || [],
+      aiAnalysis: app.ai_analysis,
+      // LinkedIn metadata
+      followerCount: linkedin.follower_count,
+      connectionCount: linkedin.connection_count,
+      isVerified: linkedin.is_verified,
+      isPremium: linkedin.is_premium,
+      isCreator: linkedin.is_creator,
+      lastEnrichedAt: app.last_enriched_at,
+      // Flags
       flagged: false,
       saved: false,
-      fitScore: app.fit_score,
-      matchingSkills: app.matching_skills,
-      missingSkills: app.missing_skills,
-      linkedinUrl: app.linkedin_url,
-      email: app.candidate_email,
-      phone: app.candidate_phone,
-      resumeUrl: app.resume_url || app.cv_url,
-      profileImage: app.profile_image_url,
-      aiAnalysis: app.ai_analysis,
     }
   })
 }

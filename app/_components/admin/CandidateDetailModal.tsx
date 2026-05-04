@@ -108,35 +108,84 @@ function CandidateAvatar({ candidate, size = 64 }: { candidate: any, size?: numb
 
 // ---- Overview Tab ----
 function OverviewTab({ c, recruiterMeta, orgMeta }: any) {
+  // Get status chip color based on actual status
+  const getStatusTone = () => {
+    if (c.interviewStatus === 'rejected' || c.status === 'rejected') return 'err';
+    if (c.stage === 'Hired' || c.status === 'hired') return 'ok';
+    if (c.stage === 'Sent to Client') return 'plum';
+    return 'paper';
+  };
+
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 36 }}>
       {/* LEFT */}
       <div>
         {/* Tags */}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
-          <Chip tone={c.stage === 'Hired' ? 'ok' : c.stage === 'Rejected' ? 'err' : c.stage === 'Sent to Client' ? 'plum' : 'paper'}>{c.stage?.toUpperCase()}</Chip>
-          <Chip tone="paper">{(c.location || 'Remote').toUpperCase()}</Chip>
-          <Chip tone="paper">{c.salary || 'Competitive'}</Chip>
+          <Chip tone={getStatusTone()}>{c.stage?.toUpperCase()}</Chip>
+          {c.interviewStatus && c.interviewStatus !== c.status && (
+            <Chip tone={c.interviewStatus === 'rejected' ? 'err' : 'paper'}>
+              INTERVIEW: {c.interviewStatus.toUpperCase()}
+            </Chip>
+          )}
+          {c.location && <Chip tone="paper">{c.location.toUpperCase()}</Chip>}
+          {c.fitScore && <Chip tone={c.fitScore >= 70 ? 'ok' : c.fitScore >= 50 ? 'paper' : 'err'}>FIT: {c.fitScore}%</Chip>}
+          {c.screeningCompleted && <Chip tone="ok">SCREENED</Chip>}
           {c.flagged && <Chip tone="err">FLAGGED</Chip>}
           {c.saved && <Chip tone="gold">SAVED</Chip>}
         </div>
 
-        {/* Quote */}
-        {c.quote && (
-          <div className="serif" style={{
-            fontSize: 22, fontStyle: 'italic', lineHeight: 1.4,
-            color: 'var(--t-1)', borderLeft: '3px solid var(--plum-600)',
-            paddingLeft: 20, marginBottom: 32, letterSpacing: '-0.005em',
+        {/* Rejection reason if rejected */}
+        {c.rejectionReason && (
+          <div style={{
+            padding: 16, marginBottom: 24,
+            background: 'rgba(220,53,69,.06)', border: '1px solid rgba(220,53,69,.2)', borderRadius: 8,
           }}>
-            &quot;{c.quote}&quot;
+            <div className="mono" style={{ fontSize: 10, letterSpacing: '.18em', color: 'var(--err)', marginBottom: 6 }}>REJECTION REASON</div>
+            <div className="serif" style={{ fontSize: 14, fontStyle: 'italic', color: 'var(--t-2)', lineHeight: 1.5 }}>
+              {c.rejectionReason}
+            </div>
           </div>
         )}
 
-        {/* About */}
-        <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 8 }}>ABOUT</div>
-        <p className="serif" style={{ fontSize: 15, lineHeight: 1.65, color: 'var(--t-2)', margin: '0 0 24px', textWrap: 'pretty' }}>
-          {c.about || `${c.years || 5}-year operator most recently at ${c.current || 'a leading tech company'}, where they own ${SAMPLE_OWNERSHIP[(c.years || 5) % SAMPLE_OWNERSHIP.length]}. Prior stints include ${SAMPLE_PRIOR[(c.years || 3) % SAMPLE_PRIOR.length]}. Open to ${c.location?.includes('Remote') ? 'remote and hybrid' : c.location || 'flexible'} roles, comp expectation around ${c.salary || 'market rate'}.`}
-        </p>
+        {/* About from LinkedIn */}
+        {c.about && (
+          <>
+            <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 8 }}>ABOUT</div>
+            <p className="serif" style={{ fontSize: 15, lineHeight: 1.65, color: 'var(--t-2)', margin: '0 0 24px', textWrap: 'pretty' }}>
+              {c.about}
+            </p>
+          </>
+        )}
+
+        {/* Experience from LinkedIn */}
+        {c.experience?.length > 0 && (
+          <>
+            <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 12 }}>EXPERIENCE</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginBottom: 24 }}>
+              {c.experience.slice(0, 3).map((exp: any, i: number) => (
+                <div key={i} style={{ 
+                  display: 'flex', gap: 14, padding: '14px 0',
+                  borderBottom: i < Math.min(c.experience.length, 3) - 1 ? '1px solid var(--hair)' : 'none'
+                }}>
+                  {exp.company_logo_url ? (
+                    <img src={exp.company_logo_url} alt={exp.company} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: 40, height: 40, borderRadius: 8, background: 'var(--ink)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--serif)', fontSize: 16, fontStyle: 'italic' }}>
+                      {(exp.company || '?')[0]}
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontFamily: 'var(--serif)', fontSize: 15, fontStyle: 'italic' }}>{exp.title}</div>
+                    <div className="mono" style={{ fontSize: 10, letterSpacing: '.14em', color: 'var(--t-4)', marginTop: 3 }}>
+                      {exp.company?.toUpperCase()} · {exp.duration || exp.date_range}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {/* Role submitted to */}
         <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 12 }}>ROLE SUBMITTED TO</div>
@@ -144,79 +193,136 @@ function OverviewTab({ c, recruiterMeta, orgMeta }: any) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', alignItems: 'center', gap: 14, padding: '14px 16px' }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontFamily: 'var(--serif)', fontSize: 16, fontStyle: 'italic', letterSpacing: '-0.005em' }}>
-                {c.role} <span className="mono" style={{ fontSize: 9, color: 'var(--plum-700)', letterSpacing: '.18em', marginLeft: 8 }}>CURRENT</span>
+                {c.role}
               </div>
               <div className="mono" style={{ fontSize: 9, letterSpacing: '.16em', color: 'var(--t-4)', marginTop: 3 }}>
                 {c.org?.toUpperCase()} · SUBMITTED {c.submitted?.toUpperCase()}
               </div>
             </div>
-            <Chip tone={c.stage === 'Hired' ? 'ok' : c.stage === 'Rejected' ? 'paper' : 'plum'}>{c.stage?.toUpperCase()}</Chip>
-            <span className="mono" style={{ fontSize: 10, letterSpacing: '.16em', color: 'var(--ink)' }}>ACTIVE</span>
+            <Chip tone={getStatusTone()}>{c.stage?.toUpperCase()}</Chip>
           </div>
+        </div>
+
+        {/* Links */}
+        <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
+          {c.linkedinUrl && (
+            <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+              border: '1px solid var(--hair)', borderRadius: 6, fontSize: 12,
+              textDecoration: 'none', color: 'var(--t-2)', fontFamily: 'var(--mono)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+              LinkedIn
+            </a>
+          )}
+          {c.resumeUrl && (
+            <a href={c.resumeUrl} target="_blank" rel="noopener noreferrer" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+              border: '1px solid var(--hair)', borderRadius: 6, fontSize: 12,
+              textDecoration: 'none', color: 'var(--t-2)', fontFamily: 'var(--mono)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Resume
+            </a>
+          )}
+          {c.email && (
+            <a href={`mailto:${c.email}`} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px',
+              border: '1px solid var(--hair)', borderRadius: 6, fontSize: 12,
+              textDecoration: 'none', color: 'var(--t-2)', fontFamily: 'var(--mono)',
+            }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+              Email
+            </a>
+          )}
         </div>
       </div>
 
       {/* RIGHT */}
       <div>
-        {/* Owner / recruiter */}
-        <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 10 }}>OWNED BY</div>
-        <div style={{ border: '1px solid var(--hair)', borderRadius: 10, padding: 18, background: '#fff', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-            <div style={{
-              width: 44, height: 44, borderRadius: 999,
-              background: 'linear-gradient(135deg, #F3E6CE, #B88858)', color: 'var(--ink)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'var(--serif)', fontSize: 17, fontStyle: 'italic',
-            }}>{(c.recruiter || '?')[0]}</div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontFamily: 'var(--serif)', fontSize: 18, fontStyle: 'italic', letterSpacing: '-0.005em' }}>{c.recruiter}</div>
-              <div className="mono" style={{ fontSize: 10, letterSpacing: '.16em', color: 'var(--t-4)', marginTop: 3 }}>
-                {(recruiterMeta?.org || 'INDEPENDENT').toUpperCase()} · RECRUITER
+        {/* Current Company Card */}
+        {c.current && (
+          <>
+            <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 10 }}>CURRENT ROLE</div>
+            <div style={{ border: '1px solid var(--hair)', borderRadius: 10, padding: 18, background: '#fff', marginBottom: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                {c.currentCompanyLogo ? (
+                  <img src={c.currentCompanyLogo} alt={c.current} style={{ width: 44, height: 44, borderRadius: 10, objectFit: 'cover' }} />
+                ) : (
+                  <div style={{
+                    width: 44, height: 44, borderRadius: 10,
+                    background: 'var(--ink)', color: 'var(--paper)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontFamily: 'var(--serif)', fontSize: 18, fontStyle: 'italic',
+                  }}>{(c.current || '?')[0]}</div>
+                )}
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontFamily: 'var(--serif)', fontSize: 18, fontStyle: 'italic', letterSpacing: '-0.005em' }}>{c.title}</div>
+                  <div className="mono" style={{ fontSize: 10, letterSpacing: '.16em', color: 'var(--t-4)', marginTop: 3 }}>
+                    {c.current?.toUpperCase()}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
-        {/* Hiring Org */}
-        <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 10 }}>HIRING ORG</div>
-        <div style={{ border: '1px solid var(--hair)', borderRadius: 10, padding: 18, background: '#fff', marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{
-              width: 44, height: 44, borderRadius: 10,
-              background: 'var(--ink)', color: 'var(--paper)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontFamily: 'var(--serif)', fontSize: 18, fontStyle: 'italic',
-            }}>{orgMeta?.logo || (c.org || '?')[0]}</div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontFamily: 'var(--serif)', fontSize: 18, fontStyle: 'italic', letterSpacing: '-0.005em' }}>{c.org}</div>
-              <div className="mono" style={{ fontSize: 10, letterSpacing: '.16em', color: 'var(--t-4)', marginTop: 3 }}>
-                {orgMeta?.tier?.toUpperCase() || 'COMPANY'}
-              </div>
+        {/* Education */}
+        {c.school && (
+          <>
+            <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 10 }}>EDUCATION</div>
+            <div style={{ border: '1px solid var(--hair)', borderRadius: 10, padding: 18, background: '#fff', marginBottom: 24 }}>
+              <div style={{ fontFamily: 'var(--serif)', fontSize: 16, fontStyle: 'italic' }}>{c.school}</div>
+              {c.degree && <div className="mono" style={{ fontSize: 10, letterSpacing: '.14em', color: 'var(--t-4)', marginTop: 4 }}>{c.degree} · {c.fieldOfStudy}</div>}
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
         {/* Details */}
         <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)', marginBottom: 10 }}>DETAILS</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 0, border: '1px solid var(--hair)', borderRadius: 10, overflow: 'hidden' }}>
           {[
+            ['STATUS', c.status?.toUpperCase() || 'PENDING'],
+            ['INTERVIEW', c.interviewStatus?.toUpperCase() || '-'],
             ['SOURCE', c.source || 'Direct'],
-            ['CURRENT', c.current || '-'],
             ['EXPERIENCE', (c.years || 0) + ' years'],
-            ['LOCATION', c.location || 'Remote'],
-            ['EXPECTED COMP', c.salary || 'Competitive'],
+            ['LOCATION', c.location || '-'],
+            ['EMAIL', c.email || '-'],
             ['SUBMITTED', c.submitted || '-'],
-          ].map(([k, v], i, arr) => (
+          ].filter(([k, v]) => v && v !== '-').map(([k, v], i, arr) => (
             <div key={k} style={{
-              display: 'grid', gridTemplateColumns: '130px 1fr', gap: 14,
+              display: 'grid', gridTemplateColumns: '110px 1fr', gap: 14,
               padding: '10px 16px',
               borderBottom: i < arr.length - 1 ? '1px solid var(--hair)' : 'none',
             }}>
               <span className="mono" style={{ fontSize: 10, letterSpacing: '.16em', color: 'var(--t-4)' }}>{k}</span>
-              <span style={{ fontFamily: 'var(--serif)', fontSize: 14, fontStyle: 'italic' }}>{v}</span>
+              <span style={{ fontFamily: 'var(--serif)', fontSize: 14, fontStyle: 'italic', wordBreak: 'break-all' }}>{v}</span>
             </div>
           ))}
         </div>
+
+        {/* LinkedIn Stats */}
+        {(c.followerCount || c.connectionCount) && (
+          <div style={{ display: 'flex', gap: 16, marginTop: 16 }}>
+            {c.followerCount && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontFamily: 'var(--serif)', fontSize: 20, fontStyle: 'italic' }}>{c.followerCount.toLocaleString()}</div>
+                <div className="mono" style={{ fontSize: 9, letterSpacing: '.14em', color: 'var(--t-4)' }}>FOLLOWERS</div>
+              </div>
+            )}
+            {c.connectionCount && (
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontFamily: 'var(--serif)', fontSize: 20, fontStyle: 'italic' }}>{c.connectionCount.toLocaleString()}</div>
+                <div className="mono" style={{ fontSize: 9, letterSpacing: '.14em', color: 'var(--t-4)' }}>CONNECTIONS</div>
+              </div>
+            )}
+            {c.isPremium && (
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <Chip tone="gold">PREMIUM</Chip>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -412,18 +518,41 @@ export function CandidateDetailModal({ candidate, viewer = 'admin', onClose }: {
             <CandidateAvatar candidate={c} size={64} />
             <div style={{ minWidth: 0 }}>
               <div className="mono" style={{ fontSize: 10, letterSpacing: '.22em', color: 'var(--t-4)' }}>
-                {c.num} · {(c.source || 'DIRECT').toUpperCase()}
+                {c.num} · {(c.source || 'DIRECT').toUpperCase()} · STATUS: {(c.status || 'PENDING').toUpperCase()}
+                {c.interviewStatus && c.interviewStatus !== c.status && (
+                  <span style={{ marginLeft: 10, color: c.interviewStatus === 'rejected' ? 'var(--err)' : 'var(--plum-700)' }}>
+                    · INTERVIEW: {c.interviewStatus.toUpperCase()}
+                  </span>
+                )}
                 {visibleToClient && <span style={{ marginLeft: 10, color: 'var(--plum-700)' }}>· VISIBLE TO CLIENT</span>}
               </div>
               <div className="serif" style={{ fontSize: 38, fontStyle: 'italic', letterSpacing: '-0.03em', lineHeight: 1.05, marginTop: 6 }}>{c.name}</div>
               <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', color: 'var(--t-3)', fontFamily: 'var(--serif)', fontSize: 15 }}>
-                <span style={{ fontStyle: 'italic' }}>{c.title || 'Software Engineer'}</span>
-                <span style={{ color: 'var(--t-5)' }}>·</span>
-                <span>at <em>{c.current || 'Unknown'}</em></span>
-                <span style={{ color: 'var(--t-5)' }}>·</span>
-                <span className="mono" style={{ fontSize: 11, letterSpacing: '.14em', color: 'var(--t-4)' }}>{c.years || 0}Y EXP</span>
-                <span style={{ color: 'var(--t-5)' }}>·</span>
-                <span className="mono" style={{ fontSize: 11, letterSpacing: '.14em', color: 'var(--t-4)' }}>{(c.location || 'Remote').toUpperCase()}</span>
+                {c.headline ? (
+                  <span style={{ fontStyle: 'italic' }}>{c.headline}</span>
+                ) : (
+                  <>
+                    <span style={{ fontStyle: 'italic' }}>{c.title || 'Software Engineer'}</span>
+                    {c.current && (
+                      <>
+                        <span style={{ color: 'var(--t-5)' }}>·</span>
+                        <span>at <em>{c.current}</em></span>
+                      </>
+                    )}
+                  </>
+                )}
+                {c.years > 0 && (
+                  <>
+                    <span style={{ color: 'var(--t-5)' }}>·</span>
+                    <span className="mono" style={{ fontSize: 11, letterSpacing: '.14em', color: 'var(--t-4)' }}>{c.years}Y EXP</span>
+                  </>
+                )}
+                {c.location && (
+                  <>
+                    <span style={{ color: 'var(--t-5)' }}>·</span>
+                    <span className="mono" style={{ fontSize: 11, letterSpacing: '.14em', color: 'var(--t-4)' }}>{c.location.toUpperCase()}</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
