@@ -17,46 +17,36 @@ function RoleDetailSkeleton() {
         <Skeleton width={120} height={14} />
         <Skeleton width={70} height={14} />
       </div>
-      {/* Pipeline skeleton */}
-      <div style={{ border:'1px solid var(--hair)', marginBottom:32 }}>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(7, 1fr)' }}>
-          {Array.from({ length: 7 }).map((_, i) => (
-            <div key={i} style={{ padding:'16px 18px', borderRight: i < 6 ? '1px solid var(--hair)' : undefined }}>
-              <Skeleton width={60} height={10} style={{ marginBottom: 6 }} />
-              <Skeleton width={40} height={28} />
-            </div>
-          ))}
-        </div>
-        <div style={{ padding:'10px 18px', borderTop:'1px solid var(--hair)', background:'color-mix(in oklch, var(--paper) 50%, #fff)' }}>
-          <Skeleton width="100%" height={6} style={{ borderRadius: 3 }} />
-          <Skeleton width={200} height={10} style={{ marginTop: 6 }} />
-        </div>
+      {/* KPI skeleton */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(5, 1fr)', gap:0, border:'1px solid var(--hair)', marginBottom:32 }}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} style={{ padding:'20px 24px', borderRight: i < 4 ? '1px solid var(--hair)' : undefined }}>
+            <Skeleton width={80} height={10} style={{ marginBottom: 10 }} />
+            <Skeleton width={50} height={32} style={{ marginBottom: 6 }} />
+            <Skeleton width={60} height={10} />
+          </div>
+        ))}
       </div>
       {/* Tabs skeleton */}
       <div style={{ display:'flex', gap:28, marginBottom:24, borderBottom:'1px solid var(--hair)', paddingBottom:10 }}>
-        <Skeleton width={100} height={20} />
         <Skeleton width={80} height={20} />
+        <Skeleton width={100} height={20} />
         <Skeleton width={70} height={20} />
+        <Skeleton width={90} height={20} />
+        <Skeleton width={60} height={20} />
+        <Skeleton width={80} height={20} />
       </div>
-      {/* Table skeleton */}
-      <SkeletonTable rows={6} cols={7} />
-    </div>
-  );
-}
-
-function PipelineBar({ pipeline }: { pipeline: Record<string, number> }) {
-  const entries = Object.entries(pipeline || {}) as [string, number][];
-  const total = entries.reduce((s, [, n]) => s + n, 0);
-  if (!total) return null;
-  return (
-    <div style={{ display:'flex', gap:2, height:6, overflow:'hidden', borderRadius:3 }}>
-      {entries.map(([stage, n]) => (
-        <div key={stage} title={`${stage}: ${n}`} style={{ 
-          flex: n, 
-          background: stage==='Hired' ? 'var(--ok)' : stage==='Rejected' ? 'var(--err)' : stage==='Sent to Client' ? 'var(--plum-600)' : n===0 ? 'transparent' : 'var(--ink)', 
-          minWidth: n > 0 ? 4 : 0 
-        }}/>
-      ))}
+      {/* Pipeline kanban skeleton */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(6, 1fr)', gap:12 }}>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i}>
+            <Skeleton width={70} height={14} style={{ marginBottom: 12 }} />
+            {Array.from({ length: 2 }).map((_, j) => (
+              <Skeleton key={j} width="100%" height={100} style={{ marginBottom: 8, borderRadius: 8 }} />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -99,11 +89,110 @@ function CandidateAvatar({ c, size = 36 }: { c: any; size?: number }) {
   );
 }
 
+// KPI Tile component
+function KpiTile({ label, value, sub, trend }: { label: string; value: string | number; sub?: string; trend?: 'up' | 'down' | 'neutral' }) {
+  return (
+    <div style={{ padding: '20px 24px', borderRight: '1px solid var(--hair)' }}>
+      <div className="mono" style={{ fontSize: 10, letterSpacing: '.18em', color: 'var(--t-4)', marginBottom: 8 }}>{label}</div>
+      <div className="serif" style={{ fontSize: 32, fontStyle: 'italic', letterSpacing: '-0.02em', lineHeight: 1 }}>{value}</div>
+      {sub && <div className="mono" style={{ fontSize: 9, letterSpacing: '.14em', color: 'var(--t-4)', marginTop: 6 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// Kanban Card component
+function KanbanCard({ c, onClick }: { c: any; onClick?: () => void }) {
+  return (
+    <div 
+      onClick={onClick}
+      style={{ 
+        border: '1px solid var(--hair)', 
+        borderRadius: 8, 
+        padding: '14px 16px', 
+        background: '#fff', 
+        marginBottom: 8,
+        cursor: 'pointer',
+        transition: 'box-shadow .15s, border-color .15s'
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = 'var(--hair-strong)';
+        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,.08)';
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = 'var(--hair)';
+        e.currentTarget.style.boxShadow = 'none';
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <CandidateAvatar c={c} size={32} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: 'var(--serif)', fontSize: 14, fontStyle: 'italic', letterSpacing: '-0.01em' }}>{c.name}</div>
+          <div className="mono" style={{ fontSize: 9, letterSpacing: '.12em', color: 'var(--t-4)', marginTop: 2 }}>
+            {c.current ? c.current.toUpperCase() : ''} {c.years > 0 && `· ${c.years}Y`}
+          </div>
+        </div>
+        <span className="mono" style={{ fontSize: 10, color: 'var(--t-5)' }}>⋯</span>
+      </div>
+      {c.headline && (
+        <div className="serif" style={{ fontSize: 12, fontStyle: 'italic', color: 'var(--t-3)', marginTop: 10, lineHeight: 1.4 }}>
+          &quot;{c.headline.length > 60 ? c.headline.substring(0, 60) + '...' : c.headline}&quot;
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Pipeline Kanban Board
+function PipelineBoard({ candidates, onCandidate }: { candidates: any[]; onCandidate?: (c: any) => void }) {
+  // Exclude Rejected from kanban view
+  const visibleStages = PIPELINE_STAGES.filter(s => s !== 'Rejected');
+  
+  const byStage = useMemo(() => {
+    const grouped: Record<string, any[]> = {};
+    visibleStages.forEach(s => { grouped[s] = []; });
+    candidates.forEach(c => {
+      if (c.stage && grouped[c.stage]) {
+        grouped[c.stage].push(c);
+      }
+    });
+    return grouped;
+  }, [candidates]);
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${visibleStages.length}, minmax(180px, 1fr))`, gap: 16, overflowX: 'auto', paddingBottom: 20 }}>
+      {visibleStages.map(stage => {
+        const isClientVisible = ['Sent to Client', 'Final Interview', 'Hired'].includes(stage);
+        const stageCount = byStage[stage]?.length || 0;
+        return (
+          <div key={stage} style={{ minWidth: 180 }}>
+            <div className="serif" style={{ 
+              fontSize: 16, 
+              fontStyle: 'italic', 
+              marginBottom: 12, 
+              color: isClientVisible ? 'var(--plum-700)' : 'var(--t-2)'
+            }}>
+              {stage}
+            </div>
+            <div style={{ minHeight: 100 }}>
+              {stageCount === 0 ? (
+                <div className="mono" style={{ fontSize: 10, color: 'var(--t-5)', textAlign: 'center', padding: 20 }}>—</div>
+              ) : (
+                byStage[stage].map(c => (
+                  <KanbanCard key={c.id} c={c} onClick={() => onCandidate?.(c)} />
+                ))
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
   const { data: applicationsData, isLoading: appsLoading } = useApplications();
   const { data: recruitersData, isLoading: recruitersLoading } = useRecruiters();
   
-  // Create a map of recruiter ID -> recruiter data for fast lookup
   const recruitersMap = useMemo(() => {
     const map = new Map<string, any>();
     (recruitersData || []).forEach((r: any) => map.set(r.id, r));
@@ -118,13 +207,28 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
   const isLoading = appsLoading || recruitersLoading;
   
   const r = role;
-  const [tab, setTab] = useState<'candidates'|'brief'|'activity'>('candidates');
+  const [tab, setTab] = useState<'pipeline'|'candidates'|'activity'|'comments'|'emails'|'brief'>('pipeline');
   const { setStage: storeSetStage, STAGES } = useCandidateStore();
   const [stageMenuFor, setStageMenuFor] = useState<string | null>(null);
 
   const roleCandidates = allCandidates.filter((c: any) => c.roleId === r?.id || c.role === r?.title);
   
-  // Generate activity from candidates
+  // Calculate KPIs
+  const inPipeline = roleCandidates.filter((c: any) => !['Hired', 'Rejected'].includes(c.stage)).length;
+  const hired = roleCandidates.filter((c: any) => c.stage === 'Hired').length;
+  const rejected = roleCandidates.filter((c: any) => c.stage === 'Rejected').length;
+  const conversion = roleCandidates.length > 0 ? Math.round((hired / roleCandidates.length) * 100) : 0;
+  
+  // Calculate age (days since oldest candidate)
+  const oldestDate = roleCandidates.reduce((oldest: Date | null, c: any) => {
+    const date = c.submittedAt ? new Date(c.submittedAt) : null;
+    if (!date) return oldest;
+    if (!oldest) return date;
+    return date < oldest ? date : oldest;
+  }, null);
+  const ageDays = oldestDate ? Math.floor((Date.now() - oldestDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+  
+  // Generate activity
   const activity = roleCandidates.slice(0, 12).map((c: any) => ({
     id: c.id,
     actor: c.name,
@@ -133,10 +237,7 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
     at: c.submitted
   }));
 
-  // Show skeleton while loading
-  if (isLoading) {
-    return <RoleDetailSkeleton />;
-  }
+  if (isLoading) return <RoleDetailSkeleton />;
 
   if (!r) return (
     <div style={{ padding:40, fontFamily:'var(--serif)', fontStyle:'italic', color:'var(--t-4)' }}>
@@ -144,13 +245,14 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
     </div>
   );
 
-  // Ensure pipeline has all stages
-  const fullPipeline: Record<string, number> = {};
-  PIPELINE_STAGES.forEach(stage => {
-    fullPipeline[stage] = r.pipeline?.[stage] || 0;
-  });
-  const pipelineEntries = Object.entries(fullPipeline) as [string, number][];
-  const total = pipelineEntries.reduce((s, [, n]) => s + n, 0);
+  const tabs = [
+    { k: 'pipeline', l: 'Pipeline', n: inPipeline },
+    { k: 'candidates', l: 'Candidates', n: roleCandidates.length },
+    { k: 'activity', l: 'Activity', n: activity.length },
+    { k: 'comments', l: 'Comments', n: 0 },
+    { k: 'emails', l: 'Emails', n: 0 },
+    { k: 'brief', l: 'Role brief', n: null },
+  ];
 
   return (
     <div className="pad-mobile" style={{ padding:'40px 48px 80px', maxWidth:1800 }}>
@@ -163,70 +265,58 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
           <div>
             <div className="mono" style={{ fontSize:10, letterSpacing:'.22em', color:'var(--t-4)' }}>{r.num} · {r.org?.toUpperCase()}</div>
             <h1 className="serif" style={{ fontSize:'clamp(36px, 4.5vw, 52px)', fontStyle:'italic', lineHeight:1.02, letterSpacing:'-0.03em', marginTop:8 }}>{r.title}</h1>
-            <div className="mono" style={{ fontSize:11, letterSpacing:'.14em', color:'var(--t-4)', marginTop:10, display:'flex', gap:16, flexWrap:'wrap', alignItems:'center' }}>
-              <span>{r.location?.toUpperCase()}</span>
-              <span>{r.workMode?.toUpperCase()}</span>
-              <span>{r.salary}</span>
-              <span>{r.opened?.toUpperCase() || 'RECENTLY'} OPEN</span>
-            </div>
           </div>
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'flex-start' }}>
             {r.status === 'open'   && <AChip tone="ok">OPEN</AChip>}
             {r.status === 'paused' && <AChip tone="paper">PAUSED</AChip>}
-            {r.status === 'hold'   && <AChip tone="paper">ON HOLD</AChip>}
             {r.focused && <AChip tone="gold">FOCUS</AChip>}
-            {r.confidential && <AChip tone="plum">CONF.</AChip>}
-            <button onClick={() => showToast('Paused role')} className="btn btn-ghost" style={{ padding:'8px 14px', fontSize:11 }}>Pause</button>
-            <button onClick={() => showToast('Opening editor...', { kind:'ok' } as any)} className="btn btn-primary" style={{ padding:'8px 14px', fontSize:11 }}>Edit role</button>
+            <button onClick={() => showToast('Adding comment...')} className="btn btn-ghost" style={{ padding:'8px 14px', fontSize:11 }}>Comment</button>
           </div>
+        </div>
+        {/* Tags row */}
+        <div style={{ display:'flex', gap:10, marginTop:16, flexWrap:'wrap' }}>
+          <span style={{ padding:'6px 14px', border:'1px solid var(--hair)', borderRadius:999, fontFamily:'var(--mono)', fontSize:10, letterSpacing:'.12em' }}>{r.status?.toUpperCase() || 'OPEN'}</span>
+          <span style={{ padding:'6px 14px', border:'1px solid var(--hair)', borderRadius:999, fontFamily:'var(--mono)', fontSize:10, letterSpacing:'.12em' }}>{r.workMode?.toUpperCase() || 'REMOTE'}</span>
+          <span style={{ padding:'6px 14px', border:'1px solid var(--hair)', borderRadius:999, fontFamily:'var(--mono)', fontSize:10, letterSpacing:'.12em' }}>{r.location?.toUpperCase() || 'REMOTE'}</span>
+          {r.salary && <span style={{ padding:'6px 14px', border:'1px solid var(--hair)', borderRadius:999, fontFamily:'var(--mono)', fontSize:10, letterSpacing:'.12em' }}>{r.salary}</span>}
+          {r.fee && <span style={{ padding:'6px 14px', border:'1px solid var(--hair)', borderRadius:999, fontFamily:'var(--mono)', fontSize:10, letterSpacing:'.12em' }}>FEE {r.fee}</span>}
+          <span style={{ padding:'6px 14px', border:'1px solid var(--hair)', borderRadius:999, fontFamily:'var(--mono)', fontSize:10, letterSpacing:'.12em' }}>{r.recruiters || 0} RECRUITERS</span>
         </div>
       </div>
 
-      {/* Pipeline summary */}
-      <div style={{ border:'1px solid var(--hair)', marginBottom:32, overflow:'hidden' }}>
-        <div style={{ display:'grid', gridTemplateColumns:`repeat(${pipelineEntries.length}, 1fr)` }}>
-          {pipelineEntries.map(([stage, n], i) => {
-            const isClientVisible = ['Sent to Client', 'Final Interview', 'Hired'].includes(stage);
-            return (
-              <div key={stage} style={{ padding:'16px 18px', borderRight: i < pipelineEntries.length - 1 ? '1px solid var(--hair)' : undefined }}>
-                <div className="mono" style={{ 
-                  fontSize:9, 
-                  letterSpacing:'.16em', 
-                  color: stage==='Hired' ? 'var(--ok)' : stage==='Rejected' ? 'var(--err)' : isClientVisible ? 'var(--plum-700)' : 'var(--t-4)', 
-                  marginBottom:4,
-                  display:'flex',
-                  alignItems:'center',
-                  gap:4
-                }}>
-                  {stage.toUpperCase()}
-                </div>
-                <div className="serif" style={{ fontSize:28, fontStyle:'italic', letterSpacing:'-0.02em', color: n > 0 ? 'var(--ink)' : 'var(--t-5)' }}>{n}</div>
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ padding:'10px 18px', borderTop:'1px solid var(--hair)', background:'color-mix(in oklch, var(--paper) 50%, #fff)' }}>
-          <PipelineBar pipeline={fullPipeline}/>
-          <div className="mono" style={{ fontSize:9, letterSpacing:'.14em', color:'var(--t-4)', marginTop:6 }}>
-            {total} TOTAL · {r.recruiters || 0} RECRUITER{r.recruiters !== 1 ? 'S' : ''} ASSIGNED · TTA {r.tta || '—'}
-          </div>
+      {/* KPI Tiles */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(5, 1fr)', border:'1px solid var(--hair)', borderRight:0, marginBottom:32 }}>
+        <KpiTile label="CANDIDATES" value={roleCandidates.length} sub={`${hired} hired · ${rejected} rej.`} />
+        <KpiTile label="IN PIPELINE" value={inPipeline} sub="" />
+        <KpiTile label="AGE" value={ageDays > 0 ? `${ageDays}d` : '—'} sub={ageDays < 30 ? 'ON TRACK' : 'AGING'} />
+        <KpiTile label="TIME TO ADD" value="—" sub="AVG" />
+        <div style={{ padding: '20px 24px' }}>
+          <div className="mono" style={{ fontSize: 10, letterSpacing: '.18em', color: 'var(--t-4)', marginBottom: 8 }}>CONVERSION</div>
+          <div className="serif" style={{ fontSize: 32, fontStyle: 'italic', letterSpacing: '-0.02em', lineHeight: 1 }}>{conversion}%</div>
+          <div className="mono" style={{ fontSize: 9, letterSpacing: '.14em', color: 'var(--t-4)', marginTop: 6 }}>TO HIRE</div>
         </div>
       </div>
 
       {/* Tabs */}
       <div style={{ borderBottom:'1px solid var(--hair)', display:'flex', gap:28, marginBottom:24 }}>
-        {([['candidates','Candidates'],['brief','Role Brief'],['activity','Activity']] as const).map(([k, l]) => {
-          const A = tab === k;
+        {tabs.map(t => {
+          const A = tab === t.k;
           return (
-            <button key={k} onClick={() => setTab(k as any)} style={{ appearance:'none', border:0, background:'transparent', cursor:'pointer', padding:'10px 0', position:'relative', color: A ? 'var(--ink)' : 'var(--t-3)', fontFamily:'var(--serif)', fontSize:18, fontStyle: A ? 'italic' : 'normal', letterSpacing:'-0.01em' }}>
-              {l}{k==='candidates' && <span className="mono" style={{ marginLeft:8, fontSize:10, color:'var(--t-4)', letterSpacing:'.14em' }}>{roleCandidates.length}</span>}
+            <button key={t.k} onClick={() => setTab(t.k as any)} style={{ appearance:'none', border:0, background:'transparent', cursor:'pointer', padding:'10px 0', position:'relative', color: A ? 'var(--ink)' : 'var(--t-3)', fontFamily:'var(--serif)', fontSize:18, fontStyle: A ? 'italic' : 'normal', letterSpacing:'-0.01em' }}>
+              {t.l}
+              {t.n !== null && <span className="mono" style={{ marginLeft:8, fontSize:10, color:'var(--t-4)', letterSpacing:'.14em' }}>{t.n}</span>}
               {A && <span style={{ position:'absolute', left:0, right:0, bottom:-1, height:2, background:'var(--ink)' }}/>}
             </button>
           );
         })}
       </div>
 
-      {/* Candidates tab */}
+      {/* Pipeline tab - Kanban Board */}
+      {tab === 'pipeline' && (
+        <PipelineBoard candidates={roleCandidates} onCandidate={onCandidate} />
+      )}
+
+      {/* Candidates tab - Table View */}
       {tab === 'candidates' && (
         <div style={{ border:'1px solid var(--hair)', borderRadius:2, overflow:'hidden', background:'#fff' }}>
           <div className="mono" style={{ display:'grid', gridTemplateColumns:'60px 1.4fr 130px 1fr 110px 110px 32px', gap:16, padding:'12px 20px', borderBottom:'1px solid var(--hair)', background:'color-mix(in oklch, var(--paper) 50%, #fff)', fontSize:10, letterSpacing:'.16em', color:'var(--t-4)' }}>
@@ -248,40 +338,17 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
                   <div style={{ minWidth:0 }}>
                     <div style={{ fontFamily:'var(--serif)', fontSize:16, fontStyle:'italic', letterSpacing:'-0.01em', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', display:'flex', alignItems:'center', gap:8 }}>
                       {c.name}
-                      {c.flagged && <span className="mono" style={{ fontSize:9, color:'var(--err)', letterSpacing:'.14em' }}>⚑</span>}
                       {visible && (
-                        <span title="Visible to client" className="mono" style={{ 
-                          fontSize:8, 
-                          color:'var(--plum-700)', 
-                          letterSpacing:'.14em', 
-                          padding:'2px 6px', 
-                          border:'1px solid var(--plum-200)', 
-                          borderRadius:4, 
-                          background:'var(--plum-50)' 
-                        }}>CLIENT</span>
+                        <span className="mono" style={{ fontSize:8, color:'var(--plum-700)', letterSpacing:'.14em', padding:'2px 6px', border:'1px solid var(--plum-200)', borderRadius:4, background:'var(--plum-50)' }}>CLIENT</span>
                       )}
                     </div>
                     <div className="mono" style={{ fontSize:9, letterSpacing:'.12em', color:'var(--t-4)', marginTop:2 }}>
-                      {c.current ? c.current.toUpperCase() : c.title?.toUpperCase() || ''} {c.years > 0 && `· ${c.years}Y`}
+                      {c.current ? c.current.toUpperCase() : ''} {c.years > 0 && `· ${c.years}Y`}
                     </div>
                   </div>
                 </button>
                 <div style={{ position:'relative' }}>
-                  <button onClick={() => setStageMenuFor(menuOpen ? null : c.id)} style={{ 
-                    appearance:'none', 
-                    cursor:'pointer', 
-                    border:'1px solid var(--hair)', 
-                    background:'#fff', 
-                    padding:'5px 10px', 
-                    borderRadius:999, 
-                    fontFamily:'var(--mono)', 
-                    fontSize:10, 
-                    letterSpacing:'.14em', 
-                    color: c.stage==='Hired' ? 'var(--ok)' : c.stage==='Rejected' ? 'var(--err)' : visible ? 'var(--plum-700)' : 'var(--t-2)', 
-                    display:'inline-flex', 
-                    alignItems:'center', 
-                    gap:5 
-                  }}>
+                  <button onClick={() => setStageMenuFor(menuOpen ? null : c.id)} style={{ appearance:'none', cursor:'pointer', border:'1px solid var(--hair)', background:'#fff', padding:'5px 10px', borderRadius:999, fontFamily:'var(--mono)', fontSize:10, letterSpacing:'.14em', color: c.stage==='Hired' ? 'var(--ok)' : c.stage==='Rejected' ? 'var(--err)' : visible ? 'var(--plum-700)' : 'var(--t-2)', display:'inline-flex', alignItems:'center', gap:5 }}>
                     {c.stage.toUpperCase()} <span style={{ fontSize:9, opacity:.6 }}>▾</span>
                   </button>
                   {menuOpen && (
@@ -293,29 +360,9 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
                           const isActive = s === c.stage;
                           const isVisible = ['Sent to Client', 'Final Interview', 'Hired'].includes(s);
                           return (
-                            <button 
-                              key={s} 
-                              onClick={() => { storeSetStage(c.id, s); setStageMenuFor(null); }} 
-                              style={{ 
-                                appearance:'none', 
-                                border:0, 
-                                background: isActive ? 'var(--paper-2)' : 'transparent', 
-                                width:'100%', 
-                                textAlign:'left', 
-                                cursor:'pointer', 
-                                padding:'8px 14px', 
-                                display:'flex',
-                                alignItems:'center',
-                                gap:10,
-                                fontFamily:'var(--serif)', 
-                                fontSize:14, 
-                                color: isActive ? 'var(--t-1)' : 'var(--t-2)', 
-                                fontStyle: isActive ? 'italic' : 'normal',
-                                letterSpacing:'-0.005em'
-                              }}
+                            <button key={s} onClick={() => { storeSetStage(c.id, s); setStageMenuFor(null); }} style={{ appearance:'none', border:0, background: isActive ? 'var(--paper-2)' : 'transparent', width:'100%', textAlign:'left', cursor:'pointer', padding:'8px 14px', display:'flex', alignItems:'center', gap:10, fontFamily:'var(--serif)', fontSize:14, color: isActive ? 'var(--t-1)' : 'var(--t-2)', fontStyle: isActive ? 'italic' : 'normal' }}
                               onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'var(--paper-2)'; }}
-                              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
-                            >
+                              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}>
                               <span style={{ width:6, height:6, borderRadius:999, background: isActive ? 'var(--ink)' : isVisible ? 'var(--plum-600)' : 'var(--hair-strong)' }}/>
                               <span style={{ flex:1 }}>{s}</span>
                               {isVisible && <span className="mono" style={{ fontSize:8, color:'var(--plum-700)', letterSpacing:'.14em' }}>CLIENT</span>}
@@ -337,6 +384,40 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Activity tab */}
+      {tab === 'activity' && (
+        <div style={{ maxWidth:700 }}>
+          {activity.length === 0 ? (
+            <div style={{ padding:'48px 0', textAlign:'center', fontFamily:'var(--serif)', fontStyle:'italic', color:'var(--t-4)' }}>No activity yet.</div>
+          ) : (
+            <div style={{ display:'flex', flexDirection:'column', gap:0 }}>
+              {activity.map((a: any, i: number) => (
+                <div key={a.id} style={{ display:'grid', gridTemplateColumns:'80px 1fr', gap:16, padding:'14px 0', borderBottom: i < activity.length-1 ? '1px solid var(--hair)' : undefined }}>
+                  <span className="mono" style={{ fontSize:10, letterSpacing:'.12em', color:'var(--t-4)' }}>{a.at?.toUpperCase()}</span>
+                  <span style={{ fontFamily:'var(--serif)', fontSize:14, fontStyle:'italic' }}>
+                    <strong>{a.actor}</strong> {a.verb}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Comments tab */}
+      {tab === 'comments' && (
+        <div style={{ maxWidth:700 }}>
+          <div style={{ padding:'48px 0', textAlign:'center', fontFamily:'var(--serif)', fontStyle:'italic', color:'var(--t-4)' }}>No comments yet.</div>
+        </div>
+      )}
+
+      {/* Emails tab */}
+      {tab === 'emails' && (
+        <div style={{ maxWidth:700 }}>
+          <div style={{ padding:'48px 0', textAlign:'center', fontFamily:'var(--serif)', fontStyle:'italic', color:'var(--t-4)' }}>No emails sent yet.</div>
         </div>
       )}
 
@@ -363,41 +444,21 @@ export function AdminRoleDetail({ role, onBack, onCandidate }: any) {
           {r.skills && r.skills.length > 0 && (
             <>
               <div className="mono" style={{ fontSize:10, letterSpacing:'.18em', color:'var(--t-4)', marginBottom:8 }}>§ SKILLS</div>
-              <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:24 }}>
-                {r.skills.map((s: string) => <AChip key={s} tone="paper">{s}</AChip>)}
+              <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:24 }}>
+                {r.skills.map((s: string) => (
+                  <span key={s} style={{ padding:'5px 12px', border:'1px solid var(--hair)', borderRadius:999, fontFamily:'var(--mono)', fontSize:10, letterSpacing:'.08em' }}>{s}</span>
+                ))}
               </div>
             </>
           )}
           {r.description && (
             <>
               <div className="mono" style={{ fontSize:10, letterSpacing:'.18em', color:'var(--t-4)', marginBottom:8 }}>§ DESCRIPTION</div>
-              <p className="serif" style={{ fontSize:15, lineHeight:1.65, color:'var(--t-2)', margin:0, textWrap:'pretty' }}>{r.description}</p>
+              <p className="serif" style={{ fontSize:15, lineHeight:1.7, color:'var(--t-2)', fontStyle:'italic', textWrap:'pretty' }}>{r.description}</p>
             </>
           )}
-        </div>
-      )}
-
-      {/* Activity tab */}
-      {tab === 'activity' && (
-        <div>
-          <div className="mono" style={{ fontSize:10, letterSpacing:'.18em', color:'var(--t-4)', marginBottom:14 }}>§ RECENT ACTIVITY</div>
-          <div style={{ borderTop:'1px solid var(--hair)' }}>
-            {activity.length === 0 && <div style={{ padding:'20px 0', color:'var(--t-4)', fontStyle:'italic' }}>No activity yet for this role.</div>}
-            {activity.map((a: any) => (
-              <div key={a.id} style={{ padding:'16px 0', borderBottom:'1px solid var(--hair)', display:'grid', gridTemplateColumns:'100px 1fr', gap:16, alignItems:'baseline' }}>
-                <span className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--t-4)' }}>{a.at?.toUpperCase()}</span>
-                <div>
-                  <span style={{ fontFamily:'var(--serif)', fontSize:16, fontStyle:'italic' }}>{a.actor}</span>
-                  <span style={{ color:'var(--t-4)', margin:'0 8px' }}>·</span>
-                  <span style={{ color:'var(--t-3)', fontSize:14 }}>{a.verb}</span>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
     </div>
   );
 }
-
-export default AdminRoleDetail;
