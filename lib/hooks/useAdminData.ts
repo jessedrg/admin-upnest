@@ -305,14 +305,30 @@ export function transformRolesForUI(roles: any[], applications: any[]) {
 
 export function transformCandidatesForUI(applications: any[], recruitersMap?: Map<string, any>) {
   return applications.map((app, index) => {
-    const name = app.candidate_name || app.linkedin_data?.full_name || 'Unknown'
+    // Helper to detect if a name looks like a username (no spaces, has numbers/dots, or all lowercase)
+    const looksLikeUsername = (n: string) => {
+      if (!n) return true;
+      const hasSpace = n.includes(' ');
+      const hasNumbers = /\d/.test(n);
+      const hasDots = n.includes('.');
+      const isAllLowercase = n === n.toLowerCase() && n.length > 3;
+      return !hasSpace && (hasNumbers || hasDots || isAllLowercase);
+    };
+    
+    // Extract data from linkedin_data if available
+    const linkedin = app.linkedin_data || {}
+    
+    // Prefer LinkedIn full_name if candidate_name looks like a username
+    const candidateName = app.candidate_name;
+    const linkedinName = linkedin.full_name;
+    const name = (looksLikeUsername(candidateName) && linkedinName) 
+      ? linkedinName 
+      : (candidateName || linkedinName || 'Unknown');
+    
     const nameParts = name.split(' ')
     const initials = nameParts.length >= 2 
       ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
       : name.substring(0, 2).toUpperCase()
-
-    // Extract data from linkedin_data if available
-    const linkedin = app.linkedin_data || {}
     const currentJob = linkedin.experience?.[0] || {}
     const education = linkedin.education?.[0] || {}
     
