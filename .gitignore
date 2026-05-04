@@ -5,3 +5,15 @@ out
 .DS_Store
 *.tsbuildinfo
 next-env.d.ts
+
+# Build artifacts (should not be committed)
+types/
+server/
+static/
+cache/
+\(app\)/
+trace
+*.pack.gz
+app-build-manifest.json
+build-manifest.json
+react-loadable-manifest.json
