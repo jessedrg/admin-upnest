@@ -305,25 +305,14 @@ export function transformRolesForUI(roles: any[], applications: any[]) {
 
 export function transformCandidatesForUI(applications: any[], recruitersMap?: Map<string, any>) {
   return applications.map((app, index) => {
-    // Helper to detect if a name looks like a username (no spaces, has numbers/dots, or all lowercase)
-    const looksLikeUsername = (n: string) => {
-      if (!n) return true;
-      const hasSpace = n.includes(' ');
-      const hasNumbers = /\d/.test(n);
-      const hasDots = n.includes('.');
-      const isAllLowercase = n === n.toLowerCase() && n.length > 3;
-      return !hasSpace && (hasNumbers || hasDots || isAllLowercase);
-    };
-    
     // Extract data from linkedin_data if available
     const linkedin = app.linkedin_data || {}
     
-    // Prefer LinkedIn full_name if candidate_name looks like a username
-    const candidateName = app.candidate_name;
-    const linkedinName = linkedin.full_name;
-    const name = (looksLikeUsername(candidateName) && linkedinName) 
-      ? linkedinName 
-      : (candidateName || linkedinName || 'Unknown');
+    // Use candidate_name as primary source (this is the real name)
+    // Only fallback to linkedin if candidate_name is empty or "Unknown"
+    const name = (app.candidate_name && app.candidate_name !== 'Unknown') 
+      ? app.candidate_name 
+      : (linkedin.full_name || 'Unknown');
     
     const nameParts = name.split(' ')
     const initials = nameParts.length >= 2 
