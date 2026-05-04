@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useRecruiters, useApplications, useRoles, transformRecruitersForUI, transformRolesForUI } from '@/lib/hooks/useAdminData';
 import { KpiTile as BKpi, Chip as BChip, SkeletonStats, SkeletonTable } from './AdminViews';
 import { showToast } from './Toast';
+import { Pagination, usePagination } from './Pagination';
 
 function RecruiterDrawer({ recruiter, onClose, onApprove, onReject, onRevoke, onRestore, roles = [] }: any) {
   const r = recruiter;
@@ -178,7 +179,17 @@ export function AdminRecruiters() {
     { k:'revoked', l:'Revoked', n: view.filter((r: any) => r.status === 'revoked').length },
   ];
 
-  const items = view.filter((r: any) => tab === 'all' ? true : r.status === tab);
+  const filteredItems = view.filter((r: any) => tab === 'all' ? true : r.status === tab);
+  
+  // Pagination
+  const { 
+    currentPage, 
+    setCurrentPage, 
+    totalPages, 
+    paginatedItems: items, 
+    totalItems,
+    itemsPerPage 
+  } = usePagination(filteredItems, 25);
 
   const approve = (r: any) => { patch(r.id, { status:'active' }); showToast(`Approved · ${r.name}`, { kind:'ok' } as any); };
   const reject  = (r: any) => { patch(r.id, { status:'revoked' }); showToast(`Rejected · ${r.name}`); };
@@ -253,6 +264,14 @@ export function AdminRecruiters() {
                 </div>
               </div>
             )}
+            <Pagination 
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              itemLabel="recruiters"
+            />
           </div>
         </>
       )}

@@ -4,6 +4,7 @@ import { useApplications, useRecruiters, transformCandidatesForUI } from '@/lib/
 import Icons from './Icons';
 import { KpiTile as BKpi, SkeletonStats, SkeletonTable } from './AdminViews';
 import { useCandidateStore } from './CandidateStore';
+import { Pagination, usePagination } from './Pagination';
 
 const STAGES = ['New', 'Screening', 'Phone', 'Sent to Client', 'Final Interview', 'Hired', 'Rejected'];
 
@@ -30,12 +31,22 @@ export function AdminCandidates({ onCandidate }: any) {
   const [stageMenuFor, setStageMenuFor] = useState<string | null>(null);
   const { setStage: storeSetStage, STAGES: storeStages } = useCandidateStore();
 
-  const candidates = allCandidates.filter((c: any) => {
+  const filteredCandidates = allCandidates.filter((c: any) => {
     if (stage !== 'all' && c.stage !== stage) return false;
     if (orgSel !== 'all' && c.org !== orgSel) return false;
     if (q && !(c.name + ' ' + c.role + ' ' + c.org + ' ' + (c.current || '')).toLowerCase().includes(q.toLowerCase())) return false;
     return true;
   });
+
+  // Pagination
+  const { 
+    currentPage, 
+    setCurrentPage, 
+    totalPages, 
+    paginatedItems: candidates, 
+    totalItems,
+    itemsPerPage 
+  } = usePagination(filteredCandidates, 25);
 
   const orgs = ['all', ...new Set(allCandidates.map((c: any) => c.org as string).filter(Boolean))];
 
@@ -82,7 +93,7 @@ export function AdminCandidates({ onCandidate }: any) {
             {orgs.map(o => <option key={o} value={o}>{o === 'all' ? 'All orgs' : o}</option>)}
           </select>
         </div>
-        <div className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--t-4)', marginLeft:'auto' }}>{candidates.length} RESULTS</div>
+        <div className="mono" style={{ fontSize:10, letterSpacing:'.14em', color:'var(--t-4)', marginLeft:'auto' }}>{totalItems} RESULTS</div>
       </div>
 
       <div style={{ border:'1px solid var(--hair)', borderRadius:2, overflow:'hidden', background:'#fff' }}>
@@ -141,6 +152,14 @@ export function AdminCandidates({ onCandidate }: any) {
             </div>
           );
         })}
+        <Pagination 
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          itemLabel="candidates"
+        />
       </div>
         </>
       )}

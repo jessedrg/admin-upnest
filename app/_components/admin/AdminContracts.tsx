@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useRecruiters, useOrganizations, useAgencies } from '@/lib/hooks/useAdminData';
 import { SectionTitle as BSec, Hairline as BHair, Chip as BChip } from './AdminViews';
 import { showToast } from './Toast';
+import { Pagination, usePagination } from './Pagination';
 
 function CountersignModal({ contract, onClose, onSign }: any) {
   const [name, setName] = useState('Casey Nguyen');
@@ -121,10 +122,20 @@ export function AdminContracts() {
   }, [orgsData]);
 
   // Combine all contracts
-  const allContracts = useMemo(() => {
+  const allContractsList = useMemo(() => {
     return [...contractsFromAgencies, ...contractsFromOrgs, ...contractsFromRecruiters]
       .sort((a, b) => (b.signed || '').localeCompare(a.signed || ''));
   }, [contractsFromAgencies, contractsFromOrgs, contractsFromRecruiters]);
+
+  // Pagination
+  const { 
+    currentPage, 
+    setCurrentPage, 
+    totalPages, 
+    paginatedItems: allContracts, 
+    totalItems,
+    itemsPerPage 
+  } = usePagination(allContractsList, 25);
 
   // Pending contracts (recruiters awaiting countersign)
   const pending = useMemo(() => {
@@ -220,7 +231,7 @@ export function AdminContracts() {
         </div>
       </div>
 
-      <BSec num="§ 02" title="Signed agreements" sub={isLoading ? 'LOADING...' : `${allContracts.length} TOTAL`}/>
+      <BSec num="§ 02" title="Signed agreements" sub={isLoading ? 'LOADING...' : `${totalItems} TOTAL`}/>
       <BHair/>
       {isLoading ? (
         <div style={{ padding:'40px', textAlign:'center', color:'var(--t-4)' }}>Loading contracts...</div>
@@ -244,6 +255,14 @@ export function AdminContracts() {
               <span><BChip tone={c.status==='active'?'ok':c.status==='expiring'?'warn':'paper'}>{c.status.toUpperCase()}</BChip></span>
             </div>
           ))}
+          <Pagination 
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            itemLabel="contracts"
+          />
         </div>
       )}
 
